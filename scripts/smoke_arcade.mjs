@@ -248,7 +248,7 @@ function makeBootCtx(winExtra, opts) {
   const mkEl = (id) => {
     if (els.has(id)) return els.get(id);
     const el = {
-      id, style: {}, innerHTML: "", textContent: "", onclick: null, src: "",
+      id, style: {}, innerHTML: "", textContent: "", onclick: null, src: "", className: "",
       clientWidth: 800, clientHeight: 600, width: 0, height: 0,
       _h: {},
       classList: {
@@ -286,6 +286,11 @@ function makeBootCtx(winExtra, opts) {
     get src() { return this._src; }
   }
 
+  // HTML 里本来就存在的元素先建出来：桩不解析 HTML，缺了会让"元素应被填充"类断言
+  // 在负向控制下直接 TypeError 而不是变红（假绿比崩溃更危险）。
+  for (const id of ["posterBox", "posterImg", "posterTitle", "posterDesc", "posterLab", "btnFree"]) mkEl(id);
+  els.get("posterBox").className = "off";   // 与模板里的初始类一致（有数据才摘掉）
+
   const ctx = vm.createContext({
     console,
     document: { getElementById: mkEl, createElement: () => mkEl("__new__" + (seq++)), addEventListener: () => {} },
@@ -293,7 +298,7 @@ function makeBootCtx(winExtra, opts) {
     Image: FakeImage,
     requestAnimationFrame: () => 0,
     setTimeout: () => 0, clearTimeout: () => {},
-    location: { search: "", href: "" }
+    location: { search: (opts && opts.search) || "", href: "" }
   });
   let err = null;
   try { vm.runInContext(js, ctx, { filename: "arcade.html(boot)" }); } catch (e) { err = e; }
@@ -377,10 +382,73 @@ console.log("\n12) 产物静态自检");
   ok(!/<link\b/i.test(html) && !/<script[^>]+src=/i.test(html) && !/<img[^>]*src="https?:/i.test(html),
     "无任何外部引用（单文件离线可玩的承诺）");
   const webpCount = (html.match(/data:image\/webp;base64,/g) || []).length;
-  ok(webpCount === 12, `12 张 webp 立绘已内联（data URL ×${webpCount}）`);
+  const wantWebp = 12 + T.COUPONS.length + (T.POSTER && T.POSTER.img ? 1 : 0);
+  ok(webpCount === wantWebp, `内联 webp 数正确（立绘 12 + 券 ${T.COUPONS.length} + 海报 `
+    + `${T.POSTER && T.POSTER.img ? 1 : 0} = ${wantWebp}，实测 ${webpCount}）`);
   ok(html.length < 350 * 1024, `产物体积在预算内（${(html.length / 1024).toFixed(0)}KB < 350KB —— 弱网也能几秒打开）`);
   ok(/id="bootTip"/.test(html) && /id="bootErr"/.test(html),
     "加载提示与错误可视元素都在产物里（结构级保障：弱网/异常不再是“只有背景”）");
+}
+
+console.log("\n13) 快赢三件套：真券图 / 活动海报 / 每日挑战");
+{
+  /* --- 真券图：掉的是麦当劳此刻在售的券，不是自绘纸片 --- */
+  ok(T.COUPONS.length >= 3, `真实券图已内联 ${T.COUPONS.length} 张（麦当劳此刻在售）`);
+  ok(T.COUPONS.every((c) => c.n && /^data:image\/webp;base64,/.test(c.img || "")),
+    "每张券都有券名与 webp 图（内联 ⇒ 无外链、无 CORS、离线可见）");
+  ok(new Set(T.COUPONS.map((c) => c.n)).size === T.COUPONS.length, "券名不重复");
+
+  T.reset(20261010, { autoStart: true });
+  const cp = T.spawnCouponAt(S().player.x, S().player.y);
+  ok(cp && cp.coupon === true && cp.ci >= 0 && cp.ci < T.COUPONS.length, "掉落的券带真实券索引 ci");
+  ok(T.COUPONS.some((c) => c.n === (cp && cp.f.n)), `券名取自真实券池：${cp && cp.f.n}`);
+  T.update(DT);
+  ok(S().coupons === 1 && S().couponGot.length === 1, "吃到券 ⇒ 记进 couponGot（战报要用）");
+
+  // 抽屉原理：5 张券连开 12 次必有重复 ⇒ 去重不生效这里就会红
+  T.reset(4242, { autoStart: true });
+  for (let i = 0; i < 12; i++) { T.spawnCouponAt(S().player.x, S().player.y); T.update(DT); }
+  ok(S().couponGot.length >= 1 && S().couponGot.length === new Set(S().couponGot.map((c) => c.i)).size,
+    `战报券列表按券去重（吃了 ${S().coupons} 次、列出 ${S().couponGot.length} 张）`);
+
+  const b = makeBootCtx();
+  {
+    b.T.reset(20261010, { autoStart: true });
+    const before = b.rec.drawImage;
+    b.T.spawnCouponAt(b.T.state().player.x, b.T.state().player.y - 240);   // 别立刻被吃掉
+    b.T.render();
+    ok(b.rec.drawImage > before, `券走真实券图绘制路径（drawImage +${b.rec.drawImage - before} 次）`);
+    // 券图没加载出来（弱网/老内核）⇒ 退回自绘纸片，不许抛错白屏
+    b.T.couponImgs.length = 0;
+    let threw = false;
+    try {
+      b.T.reset(1, { autoStart: true });
+      b.T.spawnCouponAt(b.T.state().player.x, b.T.state().player.y - 240);
+      b.T.render();
+    } catch (e) { threw = true; }
+    ok(!threw, "券图缺失时退回自绘纸片，不抛错（弱网/老内核不会白屏）");
+  }
+
+  /* --- 活动海报：开始页展示当天麦当劳真在搞的活动 --- */
+  ok(b.T.POSTER && /^data:image\/webp;base64,/.test(b.T.POSTER.img || ""), "活动海报已内联（webp data URL）");
+  ok((b.els.get("posterImg").src || "").startsWith("data:image/webp"), "开始页海报 <img> 挂上了真实海报");
+  const ptitle = b.els.get("posterTitle").textContent || "";
+  ok(ptitle.length > 0, `海报标题已填充：${ptitle.slice(0, 24)}`);
+  ok(b.els.get("posterBox").className === "", "海报卡已显示（默认的 off 被摘掉）");
+
+  /* --- 每日挑战：同一天全世界同一局 --- */
+  ok(T.isDailySeed(20261010) === true && T.isDailySeed(999) === false, "YYYYMMDD 形状 ⇒ 判为每日挑战局");
+  ok(T.dayTagOf(new Date(2026, 9, 10)) === "20261010", "dayTagOf 产出 YYYYMMDD（含月日补零）");
+  const b3 = makeBootCtx();
+  const tag = b3.T.dayTagOf(new Date());
+  ok(b3.T.DAY.seed === ((parseInt(tag, 10) >>> 0)), `开局种子 = 今日日期（${b3.T.DAY.seed}）`);
+  ok(b3.T.state().daily === true && b3.T.state().dayTag === tag, `boot 后即是每日挑战局（#${tag}）`);
+  ok(makeBootCtx().T.DAY.seed === b3.T.DAY.seed, "同一天两次打开 ⇒ 同一颗种子（全站同题）");
+  ok(makeBootCtx(null, { search: "?d=20260101" }).T.DAY.seed === 20260101, "?d=20260101 ⇒ 回玩那一天");
+  ok(makeBootCtx(null, { search: "?d=nonsense" }).T.DAY.seed === b3.T.DAY.seed, "?d= 非法值 ⇒ 退回今日（不崩）");
+  b3.els.get("btnFree").onclick();
+  ok(b3.T.state().daily === false, "点「随便玩玩」⇒ 随机种子，退出每日挑战");
+  ok(b3.els.get("btnStart").textContent.includes("今日"), `主按钮写着今日挑战：${b3.els.get("btnStart").textContent}`);
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);

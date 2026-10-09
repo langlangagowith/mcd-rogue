@@ -38,11 +38,15 @@
 > - [**麦门幸存者 McSurvivor**](./docs/neon.html) —— 幸存者类：自动开火 + 走位 + 三选一构筑，
 >   敌人的血量与速度由真实营养数据派生；
 > - [**出餐口大作战 McChow**](./docs/arcade.html) —— 接住出料口倒下来的真实菜单（吃撑结束），
->   12 张手绘风餐品立绘，热量越高体型越大。
+>   12 张手绘风餐品立绘，热量越高体型越大；掉落的**优惠券是麦当劳此刻真实在发的券**，
+>   开始页会展示**今天的真实活动海报**。
 >
 > 在线玩：**https://langlangagowith.github.io/mcd-rogue/** ·
 > [/neon.html](https://langlangagowith.github.io/mcd-rogue/neon.html) ·
 > [/arcade.html](https://langlangagowith.github.io/mcd-rogue/arcade.html)
+>
+> 🗓 **每日挑战**：两个小游戏都是「种子 = 今天的日期」——同一天所有人玩到的是同一局
+> （同出料、同券、同怪），把链接 `?d=YYYYMMDD` 发给朋友就能同题比分数。
 
 ### 方式一：直接玩（无需任何配置）
 

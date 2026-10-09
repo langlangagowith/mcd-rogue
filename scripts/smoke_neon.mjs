@@ -163,7 +163,7 @@ const hasOn = (b, id) => { const el = b.els.get(id); return !!(el && el.classLis
 // 严格桩：只认真实的 canvas 2D 成员；打错方法名会真抛 TypeError（宽松 Proxy 会把错别字吞成空函数）。
 const CTX_METHODS = ["arc", "arcTo", "beginPath", "closePath", "fill", "fillRect", "fillText",
   "lineTo", "moveTo", "restore", "rotate", "save", "setTransform", "stroke", "translate"];
-function makeBootCtx(winExtra) {
+function makeBootCtx(winExtra, opts) {
   const ctxStub = { measureText: () => ({ width: 10 }) };
   for (const m of CTX_METHODS) ctxStub[m] = () => {};
   const els = new Map();
@@ -196,7 +196,7 @@ function makeBootCtx(winExtra) {
   const ctx = vm.createContext({
     console, URLSearchParams,
     document: { getElementById: mkEl, createElement: () => mkEl("__new__" + els.size), addEventListener: () => {} },
-    location: { search: "", href: "" },
+    location: { search: (opts && opts.search) || "", href: "" },
     requestAnimationFrame: () => 0,
     window: win
   });
@@ -265,6 +265,21 @@ console.log("\n11) 产物静态自检");
   ok(html.trimEnd().endsWith("</html>"), "文件结构完整收尾于 </html>");
   ok(/id="bootTip"/.test(html) && /id="bootErr"/.test(html),
     "加载提示与错误可视元素都在产物里（结构级保障：弱网/异常不再是“只有背景”）");
+}
+
+console.log("\n12) 每日挑战（与出餐口同一口径：种子 = 当日 YYYYMMDD）");
+{
+  const b = makeBootCtx();
+  const tag = b.T.dayTagOf(new Date());
+  ok(b.T.isDailySeed(20261010) === true && b.T.isDailySeed(999) === false, "YYYYMMDD 形状 ⇒ 每日挑战局");
+  ok(tag.length === 8 && /^\d{8}$/.test(tag), `dayTagOf 产出 YYYYMMDD（${tag}）`);
+  ok(b.T.daySeed() === (parseInt(tag, 10) >>> 0), `开局种子 = 今日日期（${b.T.daySeed()}）`);
+  ok(makeBootCtx().T.daySeed() === b.T.daySeed(), "同一天两次打开 ⇒ 同一颗种子（全站同题）");
+  ok(makeBootCtx(null, { search: "?d=20260101" }).T.daySeed() === 20260101, "?d=YYYYMMDD ⇒ 回玩那一天");
+  ok((b.els.get("seedTag").textContent || "").includes("今日挑战"),
+    `开始页标签写着今日挑战：${b.els.get("seedTag").textContent}`);
+  b.els.get("btnSeed").onclick();
+  ok(!(b.els.get("seedTag").textContent || "").includes("今日挑战"), "点「换种子」⇒ 退出每日挑战，回到随机种子");
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
