@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12100e">
+<title>麦门开饭 McRogue · 一局打完今天吃什么</title>
+<meta name="description" content="用麦当劳真实菜单、真实营养数据玩一局一日三餐的肉鸽小游戏。">
+<style>
+:root{
+  --bg:#12100e; --panel:#1c1916; --panel2:#252019; --line:#332c22;
+  --gold:#ffc72c; --red:#da291c; --txt:#f5efe6; --dim:#a99e8d; --dim2:#6f6659;
+  --ok:#4cc38a; --warn:#ffb020;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+  font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+body{padding:14px 14px 108px;max-width:760px;margin:0 auto;font-size:15px;line-height:1.5}
+h1{font-size:19px;margin:0 0 2px;letter-spacing:.5px}
+h2{font-size:14px;margin:0 0 8px;color:var(--gold);font-weight:600}
+.sub{color:var(--dim);font-size:12px;margin:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:10px;align-items:center}
+.between{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.bar{height:7px;border-radius:4px;background:#2b251d;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:var(--gold);transition:width .3s}
+.bar.red>i{background:var(--red)}
+.mini{font-size:12px;color:var(--dim)}
+.tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:20px;
+  border:1px solid var(--line);color:var(--dim);margin:0 4px 4px 0}
+.tag.hot{border-color:#5a3a12;color:var(--gold);background:#241b0c}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tab{font-size:12px;padding:5px 11px;border-radius:20px;border:1px solid var(--line);
+  background:transparent;color:var(--dim);cursor:pointer}
+.tab.on{background:var(--gold);color:#241b0c;border-color:var(--gold);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.dish{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px;
+  cursor:pointer;transition:.15s;position:relative}
+.dish:active{transform:scale(.97)}
+.dish.on{border-color:var(--gold);background:#2c2418;box-shadow:0 0 0 1px var(--gold) inset}
+.dish .n{font-size:13px;line-height:1.35;min-height:35px}
+.dish .p{color:var(--gold);font-weight:700;font-size:15px}
+.dish .k{font-size:11px;color:var(--dim2);margin-top:2px}
+.dish .cat{position:absolute;top:7px;right:7px;font-size:10px;color:var(--dim2)}
+.tray{position:fixed;left:0;right:0;bottom:0;background:#1a1712;border-top:1px solid var(--line);
+  padding:10px 14px calc(10px + env(safe-area-inset-bottom));z-index:20}
+.tray .in{max-width:760px;margin:0 auto}
+.picks{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;min-height:22px}
+.pick{font-size:11px;padding:3px 8px;border-radius:20px;background:#2c2418;border:1px solid var(--gold);color:var(--gold)}
+button.primary{width:100%;padding:13px;border-radius:11px;border:0;background:var(--gold);
+  color:#241b0c;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit}
+button.primary:disabled{background:#3a332a;color:var(--dim2);cursor:not-allowed}
+button.ghost{padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:transparent;
+  color:var(--txt);font-size:14px;cursor:pointer;font-family:inherit}
+.coupon{border:1px dashed #5a4a2a;border-radius:9px;padding:7px 10px;font-size:12px;cursor:pointer;
+  background:#1f1a12;color:var(--dim)}
+.coupon.on{border:1px solid var(--gold);color:var(--gold);background:#2c2418}
+.coupon.used{opacity:.35;text-decoration:line-through;cursor:not-allowed}
+.mask{position:fixed;inset:0;background:rgba(8,7,6,.86);display:none;align-items:center;
+  justify-content:center;padding:18px;z-index:40;overflow:auto}
+.mask.on{display:flex}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;
+  width:100%;max-width:520px;max-height:88vh;overflow:auto}
+.score{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.score:last-of-type{border-bottom:0}
+.big{font-size:44px;font-weight:800;color:var(--gold);line-height:1;text-align:center;margin:6px 0}
+.center{text-align:center}
+canvas{width:100%;border-radius:10px;margin-top:10px}
+.quote{background:var(--panel2);border-radius:10px;padding:10px;font-size:13px;color:var(--dim);margin-top:10px}
+.legend{font-size:11px;color:var(--dim2);margin-top:6px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="between" style="margin-bottom:10px">
+  <div>
+    <h1>麦门开饭 · McRogue</h1>
+    <p class="sub">用真实菜单与真实营养数据，打完一日三餐</p>
+  </div>
+  <button class="ghost" id="btnRestart">重开</button>
+</div>
+
+<div class="card" id="head"></div>
+
+<div class="card">
+  <h2>今日</h2>
+  <div id="mods"></div>
+</div>
+
+<div class="card">
+  <h2>券（演示）</h2>
+  <div id="coupons" class="row" style="flex-wrap:wrap;gap:8px"></div>
+  <div class="legend">真实券为账户私有、无法内置。此处用演示券展示「用券」这一机制；
+    在 WorkBuddy 中运行 Skill 时，券来自 MCP 的 <code>query-my-coupons</code> / <code>auto-bind-coupons</code>。</div>
+</div>
+
+<div class="card">
+  <div class="between" style="margin-bottom:10px">
+    <h2 style="margin:0" id="roundTitle">第 1 关 · 早上</h2>
+    <span class="mini" id="roundQuota"></span>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div class="tray">
+  <div class="in">
+    <div class="picks" id="picks"></div>
+    <div class="between" style="margin-bottom:8px">
+      <span class="mini" id="liveTotal"></span>
+      <span class="mini" id="liveKcal"></span>
+    </div>
+    <button class="primary" id="btnServe" disabled>选一件再说</button>
+  </div>
+</div>
+
+<div class="mask" id="maskRound"><div class="sheet" id="sheetRound"></div></div>
+<div class="mask" id="maskReport"><div class="sheet" id="sheetReport"></div></div>
+
+<script id="payload" type="application/json">/*__DATA__*/</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("payload").textContent);
+const ROUNDS = [
+  {key:"breakfast", label:"早上", quota:500},
+  {key:"lunch",     label:"中午", quota:800},
+  {key:"dinner",    label:"晚上", quota:700}
+];
+const BUDGET = 60;
+const COUPONS = [
+  {id:"c3",  name:"无门槛减 ¥3", min:0,  off:3},
+  {id:"c5",  name:"满 ¥30 减 ¥5", min:30, off:5},
+  {id:"c8",  name:"满 ¥50 减 ¥8", min:50, off:8}
+];
+const MODS = [
+  {name:"元气满满", desc:"午餐热量额度 +150 kcal", tweak:s=>{s.bonusKcal.lunch=150;}},
+  {name:"月底吃土", desc:"全天预算 -¥8",           tweak:s=>{s.budget-=8;}},
+  {name:"加班到深夜", desc:"晚餐热度额度 +200 kcal", tweak:s=>{s.bonusKcal.dinner=200;}},
+  {name:"减脂中",   desc:"全天热量额度 -200 kcal",  tweak:s=>{s.kcalCap-=200;}},
+  {name:"发工资了", desc:"全天预算 +¥20",           tweak:s=>{s.budget+=20;}}
+];
+const QUOTES = {
+  "麦门之神":"今天这三顿，省得漂亮、吃得刚好。你不是在点餐，你在调度资源。",
+  "麦门门徒":"节奏很稳。唯一的问题是你可能已经比店员更懂这家店的菜单。",
+  "麦门常客":"合格的一天。有几顿冲动了，但总体还在轨道上。",
+  "麦门路人":"吃是吃饱了，账算得一般。下次先看券再选吃的。",
+  "路过麦门":"今天基本是凭感觉走的。没关系，明天从券开始。"
+};
+
+let state, filterCat = "全部";
+
+function pickOne(arr, seed){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function newGame(){
+  const mod = pickOne(MODS);
+  const ev  = DATA.events && DATA.events.length ? pickOne(DATA.events) : null;
+  state = { idx:0, budget:BUDGET, kcalCap:null, bonusKcal:{breakfast:0,lunch:0,dinner:0},
+            mod, event:ev, picks:[], coupon:null, used:new Set(), results:[] };
+  mod.tweak(state);
+  renderAll();
+}
+
+function cards(){ return DATA.rounds[ROUNDS[state.idx].key] || []; }
+function cats(){ const s=new Set(["全部"]); cards().forEach(c=>s.add(c.cat)); return [...s]; }
+function quotaOf(r){ return r.quota + (state.idx===ROUNDS.findIndex(x=>x.key===r.key) ? 0 : 0) + (state.bonusKcal[r.key]||0); }
+function curQuota(){ const r=ROUNDS[state.idx]; return r.quota + (state.bonusKcal[r.key]||0); }
+function spent(){ return state.results.reduce((a,b)=>a+b.paid,0); }
+function base(items){ return round2(items.reduce((a,b)=>a+(b.price||0),0)); }
+function kcalOf(items){ return Math.round(items.reduce((a,b)=>a+(b.kcal||0),0)); }
+function round2(n){ return Math.round(n*100)/100; }
+
+function couponOff(items){
+  if(!state.coupon) return 0;
+  const b = base(items);
+  if(b < state.coupon.min) return 0;
+  // 券额不得超过单点价，否则实付会变负、省钱率会 >1
+  return Math.min(state.coupon.off, b);
+}
+
+function scoreRound(items, off, quota){
+  const b = base(items);
+  const paid = Math.max(0, round2(b - off));
+  const save = b>0 ? Math.min(1, Math.max(0,(b-paid)/b)) : 0;
+  const hit = kcalOf(items)/quota;
+  const cUse = off>0 ? 1 : 0;
+  const calScore = Math.max(0, 1 - Math.abs(hit-1)/0.5);
+  const total = 100*(0.5*Math.min(1,save) + 0.3*calScore + 0.2*cUse);
+  return {base:b, paid, kcal:kcalOf(items), hit, save, cUse, total:round2(total)};
+}
+
+function rank(t){
+  if(t>=90) return "麦门之神";
+  if(t>=75) return "麦门门徒";
+  if(t>=60) return "麦门常客";
+  if(t>=40) return "麦门路人";
+  return "路过麦门";
+}
+
+/* ---------- 渲染 ---------- */
+function renderAll(){ renderHead(); renderMods(); renderCoupons(); renderRound(); renderTray(); }
+
+function renderHead(){
+  const r = ROUNDS[state.idx];
+  const left = round2(state.budget - spent());
+  document.getElementById("head").innerHTML = `
+    <div class="between"><h2 style="margin:0">进度</h2>
+      <span class="mini">第 ${state.idx+1} / 3 关</span></div>
+    <div class="bar"><i style="width:${(state.idx/3)*100}%"></i></div>
+    <div class="between" style="margin-top:10px">
+      <span class="mini">预算剩余</span><b style="color:${left<0?'var(--red)':'var(--gold)'}">¥${left}</b>
+    </div>
+    <div class="bar red"><i style="width:${Math.max(0,Math.min(100,(spent()/state.budget)*100))}%"></i></div>
+    <div class="mini" style="margin-top:8px">本关热量额度 <b>${curQuota()}</b> kcal · 已选 <b>${kcalOf(state.picks)}</b> kcal</div>`;
+}
+
+function renderMods(){
+  const m = state.mod, e = state.event;
+  document.getElementById("mods").innerHTML = `
+    <div><span class="tag hot">今日状态（游戏规则）</span><b>${m.name}</b>
+      <div class="mini" style="margin-top:4px">${m.desc}</div></div>
+    ${e?`<div style="margin-top:10px"><span class="tag">当季活动（真实数据）</span>
+      <b>${esc(e.title)}</b>
+      <div class="mini" style="margin-top:4px">${esc(e.text||"")}</div></div>`:""}`;
+}
+
+function renderCoupons(){
+  document.getElementById("coupons").innerHTML = COUPONS.map(c=>{
+    const used = state.used.has(c.id);
+    const on = state.coupon && state.coupon.id===c.id;
+    return `<div class="coupon ${used?'used':''} ${on?'on':''}" data-c="${c.id}">${c.name}</div>`;
+  }).join("");
+  document.querySelectorAll("[data-c]").forEach(el=>{
+    el.onclick = ()=>{
+      const c = COUPONS.find(x=>x.id===el.dataset.c);
+      if(state.used.has(c.id)) return;
+      state.coupon = (state.coupon && state.coupon.id===c.id) ? null : c;
+      renderCoupons(); renderTray();
+    };
+  });
+}
+
+function renderRound(){
+  const r = ROUNDS[state.idx];
+  document.getElementById("roundTitle").textContent = `第 ${state.idx+1} 关 · ${r.label}`;
+  document.getElementById("roundQuota").textContent = `额度 ${curQuota()} kcal`;
+  const cs = cats(), list = cards().filter(c=>filterCat==="全部"||c.cat===filterCat);
+  document.getElementById("tabs").innerHTML = cs.map(c=>
+    `<div class="tab ${c===filterCat?'on':''}" data-t="${c}">${c}</div>`).join("");
+  document.querySelectorAll("[data-t]").forEach(el=>el.onclick=()=>{filterCat=el.dataset.t;renderRound();});
+  document.getElementById("grid").innerHTML = list.map(c=>{
+    const on = state.picks.some(p=>p.code===c.code);
+    return `<div class="dish ${on?'on':''}" data-code="${c.code}">
+      <div class="cat">${c.cat}</div>
+      <div class="n">${esc(c.name)}</div>
+      <div class="p">¥${c.price}</div>
+      <div class="k">${c.kcal!=null?c.kcal+' kcal':'—'}${c.nutriName&&c.nutriName!==c.name?' · 营养:'+esc(c.nutriName):''}</div>
+    </div>`;
+  }).join("");
+  document.querySelectorAll("[data-code]").forEach(el=>el.onclick=()=>toggle(el.dataset.code));
+}
+
+function toggle(code){
+  const i = state.picks.findIndex(p=>p.code===code);
+  if(i>=0) state.picks.splice(i,1);
+  else{
+    if(state.picks.length>=3){ return; }
+    const c = cards().find(x=>x.code===code); if(c) state.picks.push(c);
+  }
+  renderRound(); renderTray();
+}
+
+function renderTray(){
+  const items = state.picks, off = couponOff(items);
+  document.getElementById("picks").innerHTML = items.map(p=>
+    `<span class="pick">${esc(p.name)} ¥${p.price}</span>`).join("")
+    || `<span class="mini">还没选餐品（每关最多 3 件）</span>`;
+  const b = base(items);
+  document.getElementById("liveTotal").innerHTML =
+    off>0 ? `单点 ¥${b} − 券 ¥${off} = <b style="color:var(--gold)">¥${round2(b-off)}</b>`
+          : `合计 <b style="color:var(--gold)">¥${b}</b>`;
+  document.getElementById("liveKcal").textContent = `${kcalOf(items)} / ${curQuota()} kcal`;
+  const btn = document.getElementById("btnServe");
+  btn.disabled = items.length===0;
+  btn.textContent = items.length===0 ? "选一件再说" : `上菜（第 ${state.idx+1} 关）`;
+}
+
+/* ---------- 结算 ---------- */
+document.getElementById("btnServe").onclick = ()=>{
+  const q = curQuota(), items = state.picks.slice();
+  const off = couponOff(items);
+  const sc = scoreRound(items, off, q);
+  if(state.coupon && off>0) state.used.add(state.coupon.id);
+  state.coupon = null;
+  sc.round = ROUNDS[state.idx].label;
+  sc.items = items;
+  state.results.push(sc);
+  showRound(sc);
+};
+
+function showRound(sc){
+  const last = state.idx===2;
+  document.getElementById("sheetRound").innerHTML = `
+    <div class="center"><span class="tag hot">第 ${state.idx+1} 关 · ${sc.round}</span></div>
+    <div class="big">${sc.total}</div>
+    <div class="center mini" style="margin-bottom:10px">本关得分</div>
+    <div class="score"><span>省钱率</span><b>${(sc.save*100).toFixed(1)}%（省 ¥${round2(sc.base-sc.paid)}）</b></div>
+    <div class="score"><span>热量达成</span><b>${sc.kcal} / ${curQuota()} kcal（${(sc.hit*100).toFixed(0)}%）</b></div>
+    <div class="score"><span>券利用</span><b>${sc.cUse? "已用券 ✓":"未用券"}</b></div>
+    <div class="score"><span>实付</span><b>¥${sc.paid}</b></div>
+    <div class="legend" style="margin-top:8px">${sc.items.map(i=>esc(i.name)).join(" · ")}</div>
+    <button class="primary" id="btnNext" style="margin-top:16px">${last?"看战报":"进入下一关"}</button>`;
+  document.getElementById("maskRound").classList.add("on");
+  document.getElementById("btnNext").onclick = ()=>{
+    document.getElementById("maskRound").classList.remove("on");
+    if(last) showReport();
+    else { state.idx++; state.picks=[]; filterCat="全部"; renderAll(); }
+  };
+}
+
+function showReport(){
+  const total = round2(state.results.reduce((a,b)=>a+b.total,0)/state.results.length);
+  let t = total, over = spent() > state.budget;
+  if(over) t = round2(t*0.7);
+  const title = rank(t);
+  document.getElementById("sheetReport").innerHTML = `
+    <div class="center">
+      <span class="tag hot">战报</span>
+      <div class="big">${t}</div>
+      <div style="font-size:17px;font-weight:700;color:var(--gold)">${title}</div>
+      <div class="mini" style="margin-top:4px">全天花费 ¥${round2(spent())} / 预算 ¥${state.budget}${over?" （超支，总分 ×0.7）":""}</div>
+    </div>
+    ${state.results.map(r=>`<div class="score"><span>${r.round}</span>
+      <b>${r.total} 分 · ¥${r.paid} · ${r.kcal} kcal</b></div>`).join("")}
+    <div class="quote">${QUOTES[title]||""}</div>
+    <canvas id="cv" width="760" height="1080"></canvas>
+    <div class="row" style="gap:10px;margin-top:12px">
+      <button class="ghost" id="btnSave" style="flex:1">保存战报图</button>
+      <button class="ghost" id="btnAgain" style="flex:1">再来一局</button>
+    </div>`;
+  document.getElementById("maskReport").classList.add("on");
+  drawCard(t, title, over, document.getElementById("cv"));
+  document.getElementById("btnSave").onclick = ()=>saveCard(document.getElementById("cv"));
+  document.getElementById("btnAgain").onclick = ()=>{
+    document.getElementById("maskReport").classList.remove("on"); newGame();
+  };
+}
+
+/* ---------- 战报图 ---------- */
+function drawCard(total, title, over, cv){
+  const g = cv.getContext("2d"), W=cv.width, H=cv.height;
+  g.fillStyle="#12100e"; g.fillRect(0,0,W,H);
+  g.fillStyle="#ffc72c"; g.fillRect(0,0,W,10);
+  g.fillStyle="#f5efe6"; g.font="700 46px system-ui,sans-serif";
+  g.fillText("麦门开饭 · McRogue", 56, 100);
+  g.fillStyle="#a99e8d"; g.font="26px system-ui,sans-serif";
+  g.fillText("一日三餐 · 战报", 56, 146);
+  g.fillStyle="#ffc72c"; g.font="800 150px system-ui,sans-serif";
+  g.fillText(String(total), 56, 300);
+  g.fillStyle="#f5efe6"; g.font="700 54px system-ui,sans-serif";
+  g.fillText(title, 56, 372);
+  g.strokeStyle="#332c22"; g.beginPath(); g.moveTo(56,410); g.lineTo(W-56,410); g.stroke();
+
+  let y = 470;
+  state.results.forEach(r=>{
+    g.fillStyle="#a99e8d"; g.font="28px system-ui,sans-serif";
+    g.fillText(r.round, 56, y);
+    g.fillStyle="#f5efe6"; g.font="700 30px system-ui,sans-serif";
+    g.fillText(`${r.total}`, 180, y);
+    g.font="26px system-ui,sans-serif"; g.fillStyle="#a99e8d";
+    g.fillText(`¥${r.paid}`, 260, y);
+    g.fillText(`${r.kcal} kcal`, 380, y);
+    y += 34;
+    g.fillStyle="#6f6659"; g.font="22px system-ui,sans-serif";
+    g.fillText(r.items.map(i=>i.name).join(" · ").slice(0,34), 56, y);
+    y += 62;
+  });
+
+  g.strokeStyle="#332c22"; g.beginPath(); g.moveTo(56,y-14); g.lineTo(W-56,y-14); g.stroke();
+  y += 46;
+  g.fillStyle="#f5efe6"; g.font="700 30px system-ui,sans-serif";
+  g.fillText(`全天花费 ¥${round2(spent())} / 预算 ¥${state.budget}`, 56, y);
+  y += 44;
+  g.fillStyle="#a99e8d"; g.font="25px system-ui,sans-serif";
+  g.fillText(`今日状态：${state.mod.name}（${state.mod.desc}）`, 56, y);
+  y += 40;
+  if(state.event){
+    g.fillText("当季活动：" + state.event.title.slice(0,22), 56, y); y += 40;
+  }
+  g.fillStyle="#6f6659"; g.font="22px system-ui,sans-serif";
+  g.fillText("数据来源：麦当劳中国 MCP（菜单 / 营养 / 活动日历）", 56, H-96);
+  g.fillText("github.com/langlangagowith/mcd-rogue", 56, H-62);
+  g.fillStyle="#ffc72c"; g.fillRect(0,H-10,W,10);
+}
+
+function saveCard(cv){
+  const a = document.createElement("a");
+  a.download = "mcrogue-report.png";
+  a.href = cv.toDataURL("image/png");
+  a.click();
+}
+
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+
+document.getElementById("btnRestart").onclick = newGame;
+document.getElementById("maskRound").onclick = e=>{ if(e.target.id==="maskRound") document.getElementById("maskRound").classList.remove("on"); };
+document.getElementById("maskReport").onclick = e=>{ if(e.target.id==="maskReport") document.getElementById("maskReport").classList.remove("on"); };
+
+newGame();
+</script>
+</body>
+</html>
