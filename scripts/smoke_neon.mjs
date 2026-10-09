@@ -243,6 +243,8 @@ console.log("\n9) 移动端回归：进得去 + 点得开 + 有怪（对应线�
   b.win._h.touchstart[0]({ touches: [{ clientX: 700, clientY: 300 }], cancelable: true });
   for (let i = 0; i < 60; i++) b.T.update(DT);
   ok(st.player.x > 1, `模拟拖动后玩家朝触点移动：x=${st.player.x.toFixed(1)}`);
+  // 启动提示/错误可视（2026-10-09 "只有背景"反馈后的保障：加载中有提示、异常有红条）
+  ok(!!b.els.get("bootTip") && b.els.get("bootTip").style.display === "none", "启动完成后加载提示已撤下");
 }
 
 console.log("\n10) 桌面路径（有 PointerEvent）");
@@ -261,6 +263,8 @@ console.log("\n11) 产物静态自检");
   const closeTags = (html.match(/<\/script>/g) || []).length;
   ok(openTags === closeTags && openTags > 0, `script 标签闭合（${openTags} 开 ${closeTags} 闭）`);
   ok(html.trimEnd().endsWith("</html>"), "文件结构完整收尾于 </html>");
+  ok(/id="bootTip"/.test(html) && /id="bootErr"/.test(html),
+    "加载提示与错误可视元素都在产物里（结构级保障：弱网/异常不再是“只有背景”）");
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);

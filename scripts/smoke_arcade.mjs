@@ -339,6 +339,8 @@ console.log("\n9) 启动装配（完整 DOM 桩 · 模拟微信：无 PointerEve
   ba.onclick();
   ok(b.T.state().over === false && b.T.state().time === 0 && b.T.state().started === true, "「再来一局」⇒ 全新一局直接开跑");
   ok(!hasOn(b, "ovEnd"), "再来一局后结算遮罩关闭");
+  // 启动提示/错误可视（2026-10-09 真机"只有背景"反馈后的保障）
+  ok(!!b.els.get("bootTip") && b.els.get("bootTip").style.display === "none", "启动完成后加载提示已撤下");
 }
 
 console.log("\n10) 桌面路径（有 PointerEvent）");
@@ -374,7 +376,11 @@ console.log("\n12) 产物静态自检");
   ok(html.trimEnd().endsWith("</html>"), "文件结构完整收尾于 </html>");
   ok(!/<link\b/i.test(html) && !/<script[^>]+src=/i.test(html) && !/<img[^>]*src="https?:/i.test(html),
     "无任何外部引用（单文件离线可玩的承诺）");
-  ok(html.length > 400 * 1024, `立绘确实内联（产物 ${(html.length / 1024).toFixed(0)}KB > 400KB）`);
+  const webpCount = (html.match(/data:image\/webp;base64,/g) || []).length;
+  ok(webpCount === 12, `12 张 webp 立绘已内联（data URL ×${webpCount}）`);
+  ok(html.length < 350 * 1024, `产物体积在预算内（${(html.length / 1024).toFixed(0)}KB < 350KB —— 弱网也能几秒打开）`);
+  ok(/id="bootTip"/.test(html) && /id="bootErr"/.test(html),
+    "加载提示与错误可视元素都在产物里（结构级保障：弱网/异常不再是“只有背景”）");
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
