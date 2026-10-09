@@ -1,0 +1,25 @@
+# 依赖与构建产物
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 密钥与本机配置（严禁提交）
+.env
+.env.*
+*.token
+mcp.local.json
+token.txt
+
+# 本机与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# 个人数据快照（含门店/地址等一律不入库）
+data/private/
