@@ -12,11 +12,11 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);
     font:14px/1.5 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
-  #cv{display:block;width:100vw;height:100vh;touch-action:none}
-  .ov{position:fixed;inset:0;display:none;place-items:center;padding:18px;
+  #cv{display:block;width:100%;height:100vh;height:100dvh;touch-action:none}
+  .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;
     background:radial-gradient(120% 90% at 50% 0%,rgba(255,59,48,.16),transparent 60%),rgba(8,6,12,.86);
-    backdrop-filter:blur(3px);z-index:10}
-  .ov.on{display:grid}
+    z-index:10}
+  .ov.on{display:flex}
   .box{width:min(560px,94vw);max-height:92vh;overflow:auto;background:#15111d;
     border:1px solid #2b2338;border-radius:16px;padding:20px 20px 18px;
     box-shadow:0 18px 60px rgba(0,0,0,.6)}
@@ -32,7 +32,7 @@
   .btn.ghost{background:#221c2e;color:#d9d3e6;font-weight:600}
   .btn:active{transform:translateY(1px)}
   .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  .cards{display:grid;gap:10px;margin:6px 0 4px}
+  .cards{display:flex;flex-direction:column;gap:10px;margin:6px 0 4px}
   .card{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;
     padding:12px 14px;border-radius:12px;cursor:pointer;color:var(--fg);
     background:#1c1726;border:1px solid #2f2740}
@@ -840,6 +840,8 @@ function boot() {
   if (hint) hint.textContent = "自动开火 · 你只管走位（WASD / 方向键 / 拖动）";
   const tag = $("seedTag"); if (tag) tag.textContent = `种子 ${seed0}`;
   reset(seed0, { autoStart: false }); render(); syncHud();
+  // ⚠ .ov 默认 display:none，不显式打开就永远进不去游戏（手机上无键盘兼底 ⇒ 直接卡死）
+  show("ovStart");
 
   $("btnStart").onclick = () => startGame(seed0);
   $("btnSeed").onclick = () => {
@@ -870,15 +872,29 @@ function boot() {
 
   const pos = (e) => {
     const r = cv.getBoundingClientRect();
-    const t = e.touches ? e.touches[0] : e;
+    const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+    if (!t) return;
     pointer.x = (t.clientX - r.left - W / 2) + S.player.x;
     pointer.y = (t.clientY - r.top - H / 2) + S.player.y;
   };
   const on = (e) => { pointer.active = true; pos(e); };
+  const move = (e) => { if (!pointer.active) return; pos(e); if (e.cancelable) e.preventDefault(); };
   const off = () => { pointer.active = false; };
-  window.addEventListener("pointerdown", on); window.addEventListener("pointermove", (e) => { if (pointer.active) pos(e); });
-  window.addEventListener("pointerup", off); window.addEventListener("pointercancel", off);
-  if (window.matchMedia && window.matchMedia("(pointer:coarse)").matches && hint) hint.textContent = "按住屏幕拖动 · 自动开火";
+  const bind = (el, type, fn, opt) => { if (el && el.addEventListener) el.addEventListener(type, fn, opt); };
+  // 微信内置浏览器（X5）等旧 WebView 没有 PointerEvent ⇒ 必须留 touch 回退，否则手机上根本动不了
+  if (window.PointerEvent) {
+    bind(window, "pointerdown", on); bind(window, "pointermove", move);
+    bind(window, "pointerup", off); bind(window, "pointercancel", off);
+  } else {
+    bind(window, "touchstart", on, { passive: true });
+    bind(window, "touchmove", move, { passive: false });
+    bind(window, "touchend", off); bind(window, "touchcancel", off);
+    bind(window, "mousedown", on); bind(window, "mousemove", move); bind(window, "mouseup", off);
+  }
+  const coarse = !!(window.matchMedia && window.matchMedia("(pointer:coarse)").matches) ||
+                 !!(window.navigator && window.navigator.maxTouchPoints > 0) ||
+                 ("ontouchstart" in window);
+  if (coarse && hint) hint.textContent = "按住屏幕拖动 · 自动开火";
 }
 if (typeof document !== "undefined" && document.getElementById) boot();
 

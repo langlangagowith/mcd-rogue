@@ -156,14 +156,14 @@ T.pointer.active = false;
   ok(s7.over || s7.time >= 119, `长跑要么已结束、要么跑满：${s7.time.toFixed(1)}s`);
 }
 
-console.log("\n8) 启动装配与渲染路径（完整 DOM 桩，补上渲染盲区）");
-{
-  // 第 1~7 节把 DOM 桩成 null ⇒ boot() 直接退出、render() 从未执行。
-  // 这里换成"能跑通的完整桩"，确认 boot() 与 render() 不抛异常（否则浏览器里就是白屏）。
-  // 严格桩：只认真实的 canvas 2D 成员。任何打错的方法名都会真的抛 TypeError
-  // （宽松 Proxy 会把错别字一律吞成空函数，等于没测）。
-  const CTX_METHODS = ["arc", "arcTo", "beginPath", "closePath", "fill", "fillRect", "fillText",
-    "lineTo", "moveTo", "restore", "rotate", "save", "setTransform", "stroke", "translate"];
+// 元素可能压根没被创建（例如遮罩从未被 show）⇒ 不存在即视为"没打开"，不能让它崩
+const hasOn = (b, id) => { const el = b.els.get(id); return !!(el && el.classList.contains("on")); };
+
+/* ---------- 可复用的「完整 DOM 桩」工厂 ---------- */
+// 严格桩：只认真实的 canvas 2D 成员；打错方法名会真抛 TypeError（宽松 Proxy 会把错别字吞成空函数）。
+const CTX_METHODS = ["arc", "arcTo", "beginPath", "closePath", "fill", "fillRect", "fillText",
+  "lineTo", "moveTo", "restore", "rotate", "save", "setTransform", "stroke", "translate"];
+function makeBootCtx(winExtra) {
   const ctxStub = { measureText: () => ({ width: 10 }) };
   for (const m of CTX_METHODS) ctxStub[m] = () => {};
   const els = new Map();
@@ -171,7 +171,8 @@ console.log("\n8) 启动装配与渲染路径（完整 DOM 桩，补上渲染盲
     if (els.has(id)) return els.get(id);
     const el = {
       id, style: {}, innerHTML: "", textContent: "", onclick: null,
-      clientWidth: 800, clientHeight: 600, width: 0, height: 0,
+      clientWidth: 800, clientHeight: 600, width: 0, height: 0, type: "", className: "",
+      _h: {},
       classList: {
         _s: new Set(),
         add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); },
@@ -179,41 +180,80 @@ console.log("\n8) 启动装配与渲染路径（完整 DOM 桩，补上渲染盲
       },
       getContext: () => ctxStub,
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
-      appendChild: () => {}, addEventListener: () => {}, querySelectorAll: () => [],
-      type: "", className: ""
+      appendChild: () => {},
+      addEventListener(t, fn) { (el._h[t] = el._h[t] || []).push(fn); },
+      querySelectorAll: () => []
     };
     els.set(id, el);
     return el;
   };
-  const ctx2 = vm.createContext({
+  const win = Object.assign({
+    _h: {},
+    addEventListener(t, fn) { (this._h[t] = this._h[t] || []).push(fn); },
+    devicePixelRatio: 1, innerWidth: 800, innerHeight: 600,
+    matchMedia: () => ({ matches: false })
+  }, winExtra || {});
+  const ctx = vm.createContext({
     console, URLSearchParams,
     document: { getElementById: mkEl, createElement: () => mkEl("__new__" + els.size), addEventListener: () => {} },
     location: { search: "", href: "" },
     requestAnimationFrame: () => 0,
-    window: {
-      addEventListener: () => {}, devicePixelRatio: 1, innerWidth: 800, innerHeight: 600,
-      matchMedia: () => ({ matches: false })
-    }
+    window: win
   });
-  let boom = null;
-  try { vm.runInContext(js, ctx2, { filename: "neon.html(boot)" }); } catch (e) { boom = e; }
-  ok(!boom, boom ? `boot() 抛异常：${boom.message}` : "boot() 在完整 DOM 桩下装配成功（含首次 render）");
-
-  const T2 = ctx2.McSurvivor;
-  ok(!!T2 && typeof T2.render === "function", "同时导出 render，可独立驱动渲染");
-  if (T2 && T2.render) {
-    let boom2 = null;
-    try {
-      T2.reset(20261009, { autoStart: true });
-      for (let i = 0; i < 60 * 20; i++) { T2.update(DT); if (T2.state().levelup) T2.choose(0); T2.render(); }
-      T2.state().levelup = { cards: [{ type: "weapon", id: "cola", lvl: 1, name: "x", icon: "1", desc: "d" }], at: 2 };
-      T2.render();
-    } catch (e) { boom2 = e; }
-    ok(!boom2, boom2 ? `渲染/推进抛异常：${boom2.message}` : "连续 20s 推进 + 逐帧 render 无异常");
-  }
+  let err = null;
+  try { vm.runInContext(js, ctx, { filename: "neon.html(boot)" }); } catch (e) { err = e; }
+  return { T: ctx.McSurvivor, els, win, err };
 }
 
-console.log("\n9) 产物静态自检");
+console.log("\n8) 启动装配与渲染路径（完整 DOM 桩，补上渲染盲区）");
+{
+  const b = makeBootCtx();                        // 无 PointerEvent ⇒ 走 touch 回退分支
+  ok(!b.err, b.err ? `boot() 抛异常：${b.err.message}` : "boot() 在完整 DOM 桩下装配成功（含首次 render）");
+  ok(!!b.T && typeof b.T.render === "function", "同时导出 render，可独立驱动渲染");
+
+  let boom = null;
+  try {
+    b.T.reset(20261009, { autoStart: true });
+    for (let i = 0; i < 60 * 20; i++) { b.T.update(DT); if (b.T.state().levelup) b.T.choose(0); b.T.render(); }
+    b.T.state().levelup = { cards: [{ type: "weapon", id: "cola", lvl: 1, name: "x", icon: "1", desc: "d" }], at: 2 };
+    b.T.render();
+  } catch (e) { boom = e; }
+  ok(!boom, boom ? `渲染/推进抛异常：${boom.message}` : "连续 20s 推进 + 逐帧 render 无异常");
+}
+
+console.log("\n9) 移动端回归：进得去 + 点得开 + 有怪（对应线上反馈的 bug）");
+{
+  const b = makeBootCtx();                        // 无 PointerEvent：微信内置浏览器（X5）就是这种
+  ok((b.win._h.touchstart || []).length === 1, "无 PointerEvent 时绑定了 touchstart 回退（否则手机上动不了）");
+  ok((b.win._h.pointerdown || []).length === 0, "不会两套都绑、导致重复触发");
+  ok(hasOn(b, "ovStart"), "开局遮罩 ovStart 已显示（不显示就无处可点 ⇒ 卡死）");
+
+  const btn = b.els.get("btnStart");
+  ok(!!btn && typeof btn.onclick === "function", "开始按钮已挂上点击处理");
+  if (btn && btn.onclick) btn.onclick();           // 模拟点「开饭」
+  ok(b.T.state().started === true, "点「开饭」后进入 started");
+  ok(!hasOn(b, "ovStart"), "开局后遮罩关闭");
+
+  for (let i = 0; i < 60 * 6; i++) b.T.update(DT);
+  const s = b.T.snapshot();
+  ok(s.time > 5, `计时在走：${s.time.toFixed(1)}s`);
+  ok(s.enemies > 0, `开局 6 秒后确实有怪：${s.enemies} 只（线上反馈正是"没有怪"）`);
+
+  const st = b.T.state();
+  b.win._h.touchstart[0]({ touches: [{ clientX: 700, clientY: 300 }], cancelable: true });
+  for (let i = 0; i < 60; i++) b.T.update(DT);
+  ok(st.player.x > 1, `模拟拖动后玩家朝触点移动：x=${st.player.x.toFixed(1)}`);
+}
+
+console.log("\n10) 桌面路径（有 PointerEvent）");
+{
+  const b = makeBootCtx({ PointerEvent: function PointerEvent() {} });
+  ok((b.win._h.pointerdown || []).length === 1, "有 PointerEvent 时走 pointer 分支");
+  ok((b.win._h.touchstart || []).length === 0, "pointer 分支下不重复绑 touch");
+  ok(hasOn(b, "ovStart"), "桌面同样能进开始遮罩");
+}
+
+console.log("\n11) 产物静态自检");
 {
   ok(/<title>[^<]*麦门幸存者[^<]*<\/title>/.test(html), "标题含游戏名");
   ok(!html.includes("__NEON_DATA__"), "注入占位符已全部替换");
