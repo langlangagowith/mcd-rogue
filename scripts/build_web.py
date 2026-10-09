@@ -16,7 +16,8 @@ import os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TPL = os.path.join(ROOT, "web", "template.html")
 POOL = os.path.join(ROOT, "data", "cardpool.json")
-OUT = os.path.join(ROOT, "web", "index.html")
+# 产物放在 docs/ —— GitHub Pages 只允许从仓库根目录或 /docs 发布
+OUT = os.path.join(ROOT, "docs", "index.html")
 PLACEHOLDER = "/*__DATA__*/"
 
 

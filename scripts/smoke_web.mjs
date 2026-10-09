@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const html = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
+const html = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
 
 const payload = html.match(/<script id="payload" type="application\/json">([\s\S]*?)<\/script>/)[1];
 const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);

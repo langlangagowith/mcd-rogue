@@ -65,7 +65,7 @@ McRogue 把痛点重新表述为**一日三餐的资源分配问题**：
 | 形态 | 文件 | 面向谁 | 作用 |
 |---|---|---|---|
 | **Skill 本体** | `SKILL.md` + `scripts/` | 装了 WorkBuddy + MCP Token 的人 | 真实数据、真实核价、可真实下单 |
-| **可玩网页版** | `web/index.html`（单文件） | 所有人 | 零门槛体验、可分享、可嵌入 |
+| **可玩网页版** | `docs/index.html`（单文件，构建产物） | 所有人 | 零门槛体验、可分享、可嵌入 |
 
 **两者共用同一套结算逻辑**（`scripts/score.py` 的规则在网页版中以等价 JS 实现），
 保证"网页版玩到的规则"和"Skill 里跑到的规则"一致。
@@ -104,13 +104,20 @@ mcd-rogue/
 ├─ LICENSE                    # MIT
 ├─ .gitignore
 ├─ data/
-│   └─ snapshot.json          # 公开菜单/营养快照（离线网页版用，无个人数据）
+│   ├─ snapshot.json          # 公开菜单/营养/活动快照（从 MCP 导出，无个人数据）
+│   └─ cardpool.json          # 游戏卡池（菜单价格 × 官方营养，按名对齐）
 ├─ docs/
+│   ├─ index.html             # 构建产物：单文件可玩网页版（GitHub Pages 入口）
 │   └─ DESIGN.md              # 本文件
 ├─ scripts/
-│   └─ score.py               # 确定性结算引擎（纯函数，可单测）
+│   ├─ score.py               # 确定性结算引擎（纯函数，可单测）
+│   ├─ mcp_client.py          # 极简 MCP 客户端（Streamable HTTP）
+│   ├─ fetch_snapshot.py      # 从 MCP 导出公开数据快照
+│   ├─ build_cardpool.py      # 菜单 × 营养 → 游戏卡池
+│   ├─ build_web.py           # 注入数据 → docs/index.html
+│   └─ smoke_web.mjs          # 网页版无头冒烟测试
 └─ web/
-    └─ index.html             # 单文件可玩网页版
+    └─ template.html          # 网页版模板（数据由 build_web.py 注入）
 ```
 
 > 关于必需文件的说明：官方 `README.md` 的表格与 `activityGuidelines.md` 列出的清单

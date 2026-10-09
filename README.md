@@ -36,7 +36,8 @@
 
 ### 方式一：直接玩（无需任何配置）
 
-打开 [`web/index.html`](./web/index.html) —— **单文件、离线可玩**，
+打开 [`docs/index.html`](./docs/index.html) —— **单文件、离线可玩**，
+或直接玩在线版：**https://langlangagowith.github.io/mcd-rogue/**
 数据已内嵌（真实菜单 + 官方营养库 + 当季活动），不用 Token、不联网也能完整玩一局，
 打完可以导出一张可分享的战报图。
 
