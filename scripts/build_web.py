@@ -43,7 +43,7 @@ def main() -> int:
     html = tpl.replace(PLACEHOLDER, data)
     if not html.endswith("\n"):
         html += "\n"
-    with open(OUT, "w", encoding="utf-8") as f:
+    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write(html)
 
     kb = os.path.getsize(OUT) / 1024

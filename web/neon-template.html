@@ -889,6 +889,7 @@ const API = {
   keys, pointer,               // 暴露输入状态：无头测试用它驱动机器人走位
   reset: (seed, opt) => reset(seed >>> 0, opt),
   update: (dt) => update(dt),
+  render: () => render(),
   choose: (i) => choose(i),
   state: () => S,
   snapshot: () => S && ({
