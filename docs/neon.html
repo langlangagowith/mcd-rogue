@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<title>麦门幸存者 McSurvivor · 麦门开饭</title>
+<style>
+  :root{
+    --bg:#0d0b12; --grid:#1b1626; --fg:#f6f2e8; --dim:#9a93a8;
+    --hot:#ff3b30; --gold:#ffc72c; --ok:#3ddc84;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);
+    font:14px/1.5 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  #cv{display:block;width:100vw;height:100vh;touch-action:none}
+  .ov{position:fixed;inset:0;display:none;place-items:center;padding:18px;
+    background:radial-gradient(120% 90% at 50% 0%,rgba(255,59,48,.16),transparent 60%),rgba(8,6,12,.86);
+    backdrop-filter:blur(3px);z-index:10}
+  .ov.on{display:grid}
+  .box{width:min(560px,94vw);max-height:92vh;overflow:auto;background:#15111d;
+    border:1px solid #2b2338;border-radius:16px;padding:20px 20px 18px;
+    box-shadow:0 18px 60px rgba(0,0,0,.6)}
+  h1{margin:0 0 2px;font-size:26px;letter-spacing:.5px}
+  h1 small{display:block;font-size:12px;font-weight:400;color:var(--dim);letter-spacing:2px;margin-top:4px}
+  .sub{color:var(--dim);font-size:13px;margin:10px 0 16px}
+  .kbd{display:inline-block;padding:1px 6px;border:1px solid #3a3048;border-bottom-width:2px;
+    border-radius:5px;font-size:12px;color:#cfc7de;background:#1d1828}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:11px 18px;border:0;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;
+    background:linear-gradient(180deg,var(--hot),#c42a20);color:#fff}
+  .btn.gold{background:linear-gradient(180deg,var(--gold),#e0a400);color:#2a1f00}
+  .btn.ghost{background:#221c2e;color:#d9d3e6;font-weight:600}
+  .btn:active{transform:translateY(1px)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .cards{display:grid;gap:10px;margin:6px 0 4px}
+  .card{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;
+    padding:12px 14px;border-radius:12px;cursor:pointer;color:var(--fg);
+    background:#1c1726;border:1px solid #2f2740}
+  .card:hover{border-color:var(--gold);background:#231c2f}
+  .card .ic{font-size:22px;line-height:1.2;width:26px;text-align:center}
+  .card b{display:block;font-size:15px;margin-bottom:2px}
+  .card span{color:var(--dim);font-size:12.5px}
+  .tag{display:inline-block;padding:1px 6px;border-radius:6px;font-size:11px;background:#2b2338;color:#c9c0db;margin-left:6px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:14px 0}
+  .stats div{display:flex;justify-content:space-between;border-bottom:1px dashed #2a2236;padding-bottom:6px}
+  .stats b{font-variant-numeric:tabular-nums}
+  .rank{font-size:34px;font-weight:900;letter-spacing:2px;color:var(--gold);text-align:center;margin:6px 0 2px}
+  .note{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.7}
+  #hud{position:fixed;left:0;right:0;top:0;padding:8px 12px;pointer-events:none;z-index:5;
+    display:flex;align-items:flex-start;gap:10px;font-variant-numeric:tabular-nums}
+  #bar{flex:1}
+  .pbar{height:9px;border-radius:6px;background:#241d31;overflow:hidden;margin-top:5px}
+  .pbar i{display:block;height:100%;width:0;border-radius:6px;transition:width .12s linear}
+  #hpFill{background:linear-gradient(90deg,#ff5b4d,#ff2d20)}
+  #xpFill{background:linear-gradient(90deg,#7de3ff,#3ddc84)}
+  #clock{font-size:22px;font-weight:800;letter-spacing:1px;text-shadow:0 2px 8px #000}
+  #lvtag{font-size:12px;color:var(--gold);font-weight:700}
+  #hint{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:5;
+    color:#8f88a0;font-size:12px;pointer-events:none;text-align:center}
+  #toast{position:fixed;left:50%;top:52%;transform:translate(-50%,-50%);z-index:6;
+    font-size:22px;font-weight:900;color:var(--gold);opacity:0;pointer-events:none;
+    text-shadow:0 3px 14px #000;transition:opacity .25s}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud">
+  <div id="bar">
+    <div class="pbar"><i id="hpFill"></i></div>
+    <div class="pbar"><i id="xpFill"></i></div>
+  </div>
+  <div style="text-align:right">
+    <div id="clock">00:00</div>
+    <div id="lvtag">Lv.1 · 击杀 0</div>
+  </div>
+</div>
+<div id="hint"></div>
+<div id="toast"></div>
+
+<div class="ov" id="ovStart">
+  <div class="box">
+    <h1>麦门幸存者<small>M C S U R V I V O R</small></h1>
+    <div class="sub">
+      你是刚出锅的<b>薯条侠</b>。餐盘里的东西都活了，全都朝你冲过来。<br>
+      自动开火，你只管<b>走位</b>；每升一级<b>三选一</b>构筑。撑过 <b>5 分钟</b>就算通关。
+    </div>
+    <div class="stats">
+      <div><span>移动</span><b>WASD / 方向键 / 拖动</b></div>
+      <div><span>暂停</span><b><i class="kbd">P</i> / <i class="kbd">Esc</i></b></div>
+      <div><span>静音</span><b><i class="kbd">M</i></b></div>
+      <div><span>再开</span><b><i class="kbd">R</i></b></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="btnStart">开饭</button>
+      <button class="btn ghost" id="btnSeed">换一个种子</button>
+      <span id="seedTag" class="tag"></span>
+    </div>
+    <div class="note">
+      敌人不是瞎编的：每种餐品的<b>血量、体型、速度</b>都由麦当劳官方营养数据（热量）派生，
+      越顶饱的越肉、越大、越慢。数据来自本项目真实调用的 MCP 接口。
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovLevel">
+  <div class="box">
+    <h1 style="font-size:20px">升级！三选一<small id="lvSub"></small></h1>
+    <div class="cards" id="cardList"></div>
+    <div class="note">按 <i class="kbd">1</i> / <i class="kbd">2</i> / <i class="kbd">3</i> 也能选</div>
+  </div>
+</div>
+
+<div class="ov" id="ovPause">
+  <div class="box">
+    <h1 style="font-size:20px">暂停<small id="pauseSub"></small></h1>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" id="btnResume">继续</button>
+      <button class="btn ghost" id="btnRestart">重开一局</button>
+      <button class="btn ghost" id="btnMute">静音切换</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovEnd">
+  <div class="box">
+    <h1 id="endTitle" style="font-size:22px">战报</h1>
+    <div class="rank" id="rank">C</div>
+    <div class="stats" id="endStats"></div>
+    <div class="note" id="endNote"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn gold" id="btnAgain">再来一局</button>
+      <button class="btn ghost" id="btnHome">回主页</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* =========================================================================
+   麦门幸存者 McSurvivor —— 单文件幸存者类（自动开火 + 走位 + 三选一构筑）
+   设计要点：
+   · 零外部依赖：无 fetch / 无图片 / 无字体，全部程序化绘制
+   · 数值由真实营养数据派生：敌 hp/体型/速度 ← 官方 kcal
+   · 模拟（update）与渲染（render）严格分离，模拟只吃种子随机 ⇒ 可无头回归
+   ========================================================================= */
+
+const DATA = {"foods":[{"n":"锡兰红茶","p":12.5,"k":2,"c":"饮品"},{"n":"浓缩咖啡","p":19,"k":13,"c":"饮品"},{"n":"麦咖啡™美式","p":9.9,"k":13,"c":"饮品"},{"n":"鲜萃咖啡","p":10.5,"k":15,"c":"饮品"},{"n":"苹果片","p":7.5,"k":32,"c":"小食"},{"n":"玉米杯","p":14.5,"k":53,"c":"小食"},{"n":"德式图林根香肠","p":9.5,"k":87,"c":"主食"},{"n":"灰焰圆筒","p":5,"k":93,"c":"甜品"},{"n":"雪碧","p":10,"k":105,"c":"饮品"},{"n":"牛奶","p":23,"k":129,"c":"饮品"},{"n":"脆薯饼","p":9,"k":146,"c":"小食"},{"n":"可乐","p":10,"k":147,"c":"饮品"},{"n":"【美汁源】“黄金橙橙”","p":14,"k":165,"c":"饮品"},{"n":"卡布奇诺","p":25,"k":167,"c":"饮品"},{"n":"燕麦奶铁","p":9.9,"k":167,"c":"饮品"},{"n":"麦咖啡™奶铁","p":9.9,"k":186,"c":"饮品"},{"n":"薄皮焦香V翅","p":16.5,"k":192,"c":"其他"},{"n":"脆香油条","p":9,"k":202,"c":"主食"},{"n":"麦乐鸡","p":15.5,"k":213,"c":"其他"},{"n":"冰牛奶中杯","p":23,"k":224,"c":"饮品"},{"n":"麦辣鸡翅","p":15.5,"k":224,"c":"主食"},{"n":"派","p":9.5,"k":232,"c":"小食"},{"n":"原味板烧鸡腿麦满分","p":16,"k":246,"c":"主食"},{"n":"火腿扒麦满分","p":11.5,"k":261,"c":"主食"},{"n":"经典麦旋风","p":16,"k":266,"c":"甜品"},{"n":"新地","p":14,"k":282,"c":"甜品"},{"n":"薯条","p":14.5,"k":289,"c":"小食"},{"n":"猪柳麦满分","p":15,"k":308,"c":"主食"},{"n":"麦香鱼","p":24.5,"k":325,"c":"其他"},{"n":"麦麦脆汁鸡1块","p":15.5,"k":328,"c":"主食"},{"n":"双层原味板烧鸡腿麦满分","p":20,"k":355,"c":"主食"},{"n":"大脆鸡扒麦满分","p":12.5,"k":361,"c":"主食"},{"n":"麦香鸡","p":19,"k":369,"c":"其他"},{"n":"那么大鸡排（椒盐风味）","p":15,"k":385,"c":"主食"},{"n":"猪柳蛋麦满分","p":19,"k":387,"c":"主食"},{"n":"板烧鸡腿堡","p":26,"k":391,"c":"主食"},{"n":"原味板烧鸡腿炒双蛋堡","p":19.5,"k":419,"c":"主食"},{"n":"图林根香肠早安营养卷","p":16.5,"k":425,"c":"主食"},{"n":"双层吉士汉堡","p":25.5,"k":429,"c":"主食"},{"n":"猪柳炒双蛋堡","p":19.5,"k":437,"c":"主食"},{"n":"培根蔬萃双层牛堡","p":26,"k":442,"c":"主食"},{"n":"火腿扒早安营养卷","p":16.5,"k":444,"c":"主食"},{"n":"双层深海鳕鱼堡","p":26,"k":485,"c":"主食"},{"n":"麦辣鸡腿汉堡","p":25.5,"k":485,"c":"主食"},{"n":"不素之霸双层牛堡","p":27.5,"k":493,"c":"主食"},{"n":"双层猪柳蛋麦满分","p":22,"k":513,"c":"主食"},{"n":"巨无霸","p":28,"k":513,"c":"其他"},{"n":"芝士安格斯厚牛堡","p":35,"k":696,"c":"主食"},{"n":"培根安格斯厚牛堡","p":38,"k":707,"c":"主食"}],"meta":{"source":"麦当劳 MCP · list-nutrition-foods / query-meals","count":49,"note":"敌人属性由官方 kcal 派生"}};
+const VERSION = "1.0.0";
+
+/* ------------------------------ 基础工具 ------------------------------ */
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const TAU = Math.PI * 2;
+
+// 确定性随机（mulberry32）—— 模拟里禁止使用 Math.random
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const CAT_COLOR = {
+  "主食": "#ff8a3d", "小食": "#ffd93d", "甜品": "#ff7bc8",
+  "饮品": "#5ec8ff", "饮料": "#5ec8ff", "咖啡": "#c79a6b",
+  "套餐": "#ff5b4d", "其他": "#ff6f61"
+};
+const catColor = (c) => CAT_COLOR[c] || "#b6a9ff";
+
+/* --------------------------- 由营养数据派生 --------------------------- */
+// 热量越高 ⇒ 越肉、越大、越慢、给的经验越多（这就是"官方数据驱动设计"）
+function deriveArchetypes(foods) {
+  const out = [], seen = new Set();
+  for (const f of foods) {
+    if (!f || !f.n || seen.has(f.n)) continue;
+    seen.add(f.n);
+    const kcal = Math.max(20, f.k | 0);
+    out.push({
+      name: f.n, cat: f.c || "", kcal,
+      hp: 6 + kcal / 12,
+      r: clamp(8 + kcal / 70, 9, 26),
+      speed: clamp(78 - kcal / 14, 26, 72),
+      dmg: clamp(4 + kcal / 90, 4, 14),
+      xp: 2 + Math.floor(kcal / 100),
+      color: catColor(f.c)
+    });
+  }
+  return out;
+}
+const ARCH = deriveArchetypes(DATA.foods || []);
+const BOSS_ARCH = ARCH.slice().sort((a, b) => b.hp - a.hp)[0] || {
+  name: "巨无霸", cat: "主食", kcal: 550, hp: 52, r: 26, speed: 30, dmg: 16, xp: 12, color: "#ff8a3d"
+};
+
+/* -------------------------------- 武器 -------------------------------- */
+const WEAPONS = {
+  ketchup: {
+    name: "番茄弹", icon: "🍅", max: 5,
+    desc: (l) => `朝最近敌人发射 ${l >= 4 ? 3 : l >= 2 ? 2 : 1} 发直线番茄酱（伤害 ${9 + 4 * (l - 1)}）`,
+    cd: (l) => 0.82 - 0.075 * (l - 1),
+    fire: (S, w) => {
+      const n = w.lvl >= 4 ? 3 : w.lvl >= 2 ? 2 : 1;
+      const dmg = 9 + 4 * (w.lvl - 1);
+      const t = nearestEnemy(S, S.player, 560);
+      const base = t ? Math.atan2(t.y - S.player.y, t.x - S.player.x) : -Math.PI / 2;
+      for (let i = 0; i < n; i++) {
+        const a = base + (i - (n - 1) / 2) * 0.16;
+        shoot(S, a, 520, dmg, { r: 5, color: "#ff4d3d", pierce: 0, life: 1.1, kind: "dot" });
+      }
+      sfx(S, "shoot");
+    }
+  },
+  nugget: {
+    name: "麦乐鸡追踪", icon: "🍗", max: 5,
+    desc: (l) => `放出自寻的鸡块（${1 + Math.floor((l - 1) / 2)} 枚，伤害 ${8 + 4 * (l - 1)}）`,
+    cd: (l) => 1.25 - 0.09 * (l - 1),
+    fire: (S, w) => {
+      const n = 1 + Math.floor((w.lvl - 1) / 2);
+      const dmg = 8 + 4 * (w.lvl - 1);
+      for (let i = 0; i < n; i++) {
+        const a = S.rng() * TAU;
+        shoot(S, a, 300, dmg, { r: 6, color: "#ffc72c", pierce: 1, life: 2.4, homing: 5.2, kind: "nugget" });
+      }
+      sfx(S, "shoot");
+    }
+  },
+  cola: {
+    name: "可乐冲击波", icon: "🥤", max: 5,
+    desc: (l) => `以身体为中心炸开碳酸波（半径 ${72 + 16 * l}，伤害 ${10 + 4 * (l - 1)}）`,
+    cd: (l) => 2.5 - 0.22 * (l - 1),
+    fire: (S, w) => {
+      const R = 72 + 16 * w.lvl, dmg = 10 + 4 * (w.lvl - 1);
+      S.fx.push({ kind: "ring", x: S.player.x, y: S.player.y, r: 10, R, t: 0, dur: 0.34, color: "#5ec8ff" });
+      for (const e of S.enemies) {
+        if (!e.dead && Math.hypot(e.x - S.player.x, e.y - S.player.y) <= R + e.r) hurtEnemy(S, e, dmg);
+      }
+      sfx(S, "boom");
+    }
+  },
+  salt: {
+    name: "撒盐雨", icon: "🧂", max: 5,
+    desc: (l) => `在 ${l} 个敌人头上落下盐圈（伤害 ${12 + 5 * (l - 1)}）`,
+    cd: (l) => 2.9 - 0.2 * (l - 1),
+    fire: (S, w) => {
+      const n = w.lvl, dmg = 12 + 5 * (w.lvl - 1);
+      const list = S.enemies.filter((e) => !e.dead).sort((a, b) =>
+        Math.hypot(a.x - S.player.x, a.y - S.player.y) - Math.hypot(b.x - S.player.x, b.y - S.player.y)).slice(0, n);
+      for (const e of list) {
+        S.zones.push({ x: e.x, y: e.y, r: 46, t: 0, dur: 0.55, dmg, tick: 0, hit: new Set() });
+      }
+      if (list.length) sfx(S, "salt");
+    }
+  },
+  fries: {
+    name: "薯条扇射", icon: "🍟", max: 5,
+    desc: (l) => `扇形泼出 ${1 + Math.floor((l - 1) / 2) + 1} 根薯条（伤害 ${7 + 3 * (l - 1)}）`,
+    cd: (l) => 1.0 - 0.07 * (l - 1),
+    fire: (S, w) => {
+      const n = 1 + Math.floor((w.lvl - 1) / 2) + 1, dmg = 7 + 3 * (w.lvl - 1);
+      const t = nearestEnemy(S, S.player, 560);
+      const base = t ? Math.atan2(t.y - S.player.y, t.x - S.player.x) : Math.PI / 2;
+      for (let i = 0; i < n; i++) {
+        const a = base + (i - (n - 1) / 2) * 0.3;
+        shoot(S, a, 430, dmg, { r: 4, color: "#ffe066", pierce: 1, life: 1.2, homing: 0, kind: "fry" });
+      }
+      sfx(S, "shoot");
+    }
+  },
+  lettuce: {
+    name: "生菜护环", icon: "🥬", max: 5,
+    desc: (l) => `${2 + Math.floor((l - 1) / 2) + 1} 片生菜绕着你转，碰到就割（伤害 ${6 + 3 * (l - 1)}）`,
+    cd: () => 0, // 持续型，不走冷却
+    fire: () => {}
+  }
+};
+const WEAPON_IDS = Object.keys(WEAPONS);
+
+/* ------------------------------- 被动 -------------------------------- */
+const PASSIVES = {
+  dmg:     { name: "更辣",   icon: "🌶", desc: (n) => `全部伤害 +10%（当前 +${n * 10}%）` },
+  cdr:     { name: "出餐快", icon: "⏱", desc: (n) => `武器冷却 -8%（当前 -${Math.round((1 - Math.pow(0.92, n)) * 100)}%）` },
+  spd:     { name: "腿脚好", icon: "🏃", desc: (n) => `移动速度 +8%（当前 +${n * 8}%）` },
+  hp:      { name: "更扛",   icon: "❤️", desc: (n) => `生命上限 +18 并回满（当前 +${n * 18}）` },
+  pickup:  { name: "顺手牵", icon: "🧲", desc: (n) => `拾取范围 +18%（当前 +${n * 18}%）` },
+  fortune: { name: "幸运",   icon: "🍀", desc: (n) => `掉落与暴击概率提升（当前 ${n * 8}%）` }
+};
+const PASSIVE_IDS = Object.keys(PASSIVES);
+
+/* ------------------------------ 游戏状态 ------------------------------ */
+let S = null;
+const WIN_TIME = 300;      // 5 分钟通关
+const MAX_ENEMIES = 280;
+const BOSS_EVERY = 75;     // 每 75s 一只 BOSS
+
+function emptyState(seed) {
+  return {
+    version: VERSION, seed, rng: mulberry32(seed),
+    time: 0, started: false, over: false, won: false, paused: false, levelup: null,
+    kills: 0, nextBossAt: BOSS_EVERY, spawnTimer: 1.4, survivedBest: 0,
+    player: { x: 0, y: 0, r: 14, hp: 100, maxHp: 100, speed: 212, pickup: 78,
+      level: 1, xp: 0, xpNeed: xpNeedFor(1), invuln: 0, face: -Math.PI / 2, dash: 0 },
+    enemies: [], bullets: [], gems: [], drops: [], zones: [], fx: [], orbits: [],
+    // 开局必须带一把武器：否则杀不了→拿不到经验→永远升不了级（死循环）
+    weapons: [{ id: "ketchup", lvl: 1, timer: 0.25, orbit: 0 }], passives: { dmg: 0, cdr: 0, spd: 0, hp: 0, pickup: 0, fortune: 0 },
+    spawnMul: 1, pickQueue: [], stats: { dealt: 0 }
+  };
+}
+function reset(seed, opt) {
+  S = emptyState(seed >>> 0);
+  S.started = !!(opt && opt.autoStart);
+  return S;
+}
+
+/* -------------------------------- 查询 -------------------------------- */
+function nearestEnemy(S, p, maxD) {
+  let best = null, bd = maxD * maxD;
+  for (const e of S.enemies) {
+    if (e.dead) continue;
+    const dx = e.x - p.x, dy = e.y - p.y, d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+
+/* -------------------------------- 生成 -------------------------------- */
+function pickArchetype(S) {
+  // 时间越久，越容易刷出"顶饱"的大件（热量高的）
+  const bias = 1 + S.time / 110;
+  let total = 0;
+  const w = ARCH.map((a) => { const v = Math.pow(a.kcal / 260, 1 / bias); total += v; return v; });
+  let x = S.rng() * total;
+  for (let i = 0; i < ARCH.length; i++) { x -= w[i]; if (x <= 0) return ARCH[i]; }
+  return ARCH[ARCH.length - 1];
+}
+function spawnEnemy(S, arch, boss) {
+  if (S.enemies.length >= MAX_ENEMIES && !boss) return;
+  const a = S.rng() * TAU;
+  const R = 520 + S.rng() * 160;
+  const hpScale = 1 + S.time / 68;
+  const e = {
+    x: S.player.x + Math.cos(a) * R, y: S.player.y + Math.sin(a) * R,
+    r: arch.r * (boss ? 2 : 1), arch,
+    hp: arch.hp * hpScale * (boss ? 22 : 1), maxHp: 0,
+    speed: arch.speed * (boss ? 0.72 : 1) * (0.92 + S.rng() * 0.16),
+    dmg: arch.dmg * (boss ? 1.5 : 1),
+    xp: arch.xp * (boss ? 18 : 1),
+    boss: !!boss, hitCd: 0, flash: 0, wob: S.rng() * TAU
+  };
+  e.maxHp = e.hp;
+  S.enemies.push(e);
+}
+function shoot(S, ang, spd, dmg, opt) {
+  const p = S.player;
+  S.bullets.push({
+    x: p.x + Math.cos(ang) * (p.r + 4), y: p.y + Math.sin(ang) * (p.r + 4),
+    vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+    ang, r: opt.r || 5, dmg: dmg * (1 + S.passives.dmg * 0.1),
+    pierce: opt.pierce || 0, life: opt.life || 1.2, color: opt.color || "#fff",
+    homing: opt.homing || 0, kind: opt.kind || "", hit: new Set()
+  });
+}
+function hurtEnemy(S, e, dmg, crit) {
+  if (e.dead) return;
+  e.hp -= dmg; S.stats.dealt += dmg; e.flash = 0.08;
+  if (crit || (S.passives.fortune > 0 && S.rng() < S.passives.fortune * 0.08)) {
+    S.fx.push({ kind: "pop", x: e.x, y: e.y - e.r, t: 0, dur: 0.4, txt: "会心", color: "#ffd93d" });
+  }
+  if (e.hp <= 0) killEnemy(S, e);
+}
+function killEnemy(S, e) {
+  e.dead = true; S.kills++;
+  const n = clamp(Math.round(e.xp / 3), 1, 5);
+  for (let i = 0; i < n; i++) {
+    const a = S.rng() * TAU, s = 30 + S.rng() * 70;
+    S.gems.push({ x: e.x, y: e.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, val: e.xp / n, r: 5 });
+  }
+  if (e.boss) {
+    S.drops.push({ x: e.x, y: e.y, kind: "heart", r: 11, t: 0 });
+    for (let i = 0; i < 3; i++) S.drops.push({ x: e.x + (S.rng() - .5) * 40, y: e.y + (S.rng() - .5) * 40, kind: "magnet", r: 10, t: 0 });
+    S.fx.push({ kind: "pop", x: e.x, y: e.y, t: 0, dur: 1.0, txt: "BOSS 倒下", color: "#ff5b4d" });
+    sfx(S, "boss");
+  } else if (S.rng() < 0.012 + S.passives.fortune * 0.02) {
+    S.drops.push({ x: e.x, y: e.y, kind: "heart", r: 9, t: 0 });
+  }
+  sfx(S, "kill");
+}
+
+/* ------------------------------ 升级三选一 ---------------------------- */
+function xpNeedFor(level) { return Math.round(5 + level * 2.2 + level * level * 0.1); }
+
+function rollCards(S) {
+  const pool = [];
+  for (const id of WEAPON_IDS) {
+    const w = S.weapons.find((x) => x.id === id);
+    if (!w && S.weapons.length < 6) pool.push({ type: "weapon", id, lvl: 1 });
+    else if (w && w.lvl < WEAPONS[id].max) pool.push({ type: "weapon", id, lvl: w.lvl + 1 });
+  }
+  for (const id of PASSIVE_IDS) pool.push({ type: "passive", id, lvl: S.passives[id] + 1 });
+  const out = [];
+  while (out.length < Math.min(3, pool.length)) {
+    const i = Math.floor(S.rng() * pool.length);
+    out.push(pool.splice(i, 1)[0]);
+  }
+  return out.map((c) => {
+    if (c.type === "weapon") {
+      const cur = S.weapons.find((x) => x.id === c.id);
+      return {
+        type: "weapon", id: c.id, lvl: c.lvl,
+        name: WEAPONS[c.id].name, icon: WEAPONS[c.id].icon,
+        tag: cur ? `Lv.${cur.lvl} → ${c.lvl}` : "新武器",
+        desc: WEAPONS[c.id].desc(c.lvl)
+      };
+    }
+    const P = PASSIVES[c.id];
+    return {
+      type: "passive", id: c.id, lvl: c.lvl,
+      name: P.name, icon: P.icon,
+      tag: `Lv.${S.passives[c.id]} → ${c.lvl}`,
+      desc: P.desc(S.passives[c.id])
+    };
+  });
+}
+function choose(idx) {
+  if (!S || !S.levelup) return false;
+  const c = S.levelup.cards[idx];
+  if (!c) return false;
+  if (c.type === "weapon") {
+    let w = S.weapons.find((x) => x.id === c.id);
+    if (!w) { w = { id: c.id, lvl: 0, timer: 0.15, orbit: 0 }; S.weapons.push(w); }
+    w.lvl = c.lvl;
+    if (c.id === "lettuce") rebuildOrbits(S);
+  } else {
+    S.passives[c.id] = c.lvl;
+    if (c.id === "hp") { S.player.maxHp += 18; S.player.hp = S.player.maxHp; }
+  }
+  S.levelup = null;
+  sfx(S, "pick");
+  return true;
+}
+function rebuildOrbits(S) {
+  S.orbits.length = 0;
+  const w = S.weapons.find((x) => x.id === "lettuce");
+  if (!w) return;
+  const n = 2 + Math.floor((w.lvl - 1) / 2) + 1;
+  for (let i = 0; i < n; i++) {
+    const a = (TAU / n) * i, r = 62 + w.lvl * 4;
+    // 初始就给出坐标：升级面板暂停期间 render 可能先跑到，缺 x/y 会画成 NaN
+    S.orbits.push({ a, r, dmg: 6 + 3 * (w.lvl - 1), cd: 0,
+      x: S.player.x + Math.cos(a) * r, y: S.player.y + Math.sin(a) * r });
+  }
+}
+
+/* -------------------------------- 音效 -------------------------------- */
+let AC = null, muted = false;
+function sfx(S, kind) {
+  if (muted || typeof AudioContext === "undefined" && typeof webkitAudioContext === "undefined") return;
+  try {
+    if (!AC) AC = new (typeof AudioContext !== "undefined" ? AudioContext : webkitAudioContext)();
+    const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.connect(g); g.connect(AC.destination);
+    const P = { shoot: [520, 0.05, "square", 0.028], kill: [180, 0.07, "triangle", 0.03],
+      boom: [90, 0.22, "sawtooth", 0.05], pick: [740, 0.14, "sine", 0.06],
+      level: [660, 0.2, "sine", 0.06], hurt: [140, 0.12, "square", 0.05],
+      salt: [420, 0.08, "sine", 0.03], boss: [70, 0.6, "sawtooth", 0.07], over: [110, 0.7, "sine", 0.07] }[kind];
+    if (!P) return;
+    o.type = P[2]; o.frequency.setValueAtTime(P[0], t);
+    if (kind === "pick" || kind === "level") o.frequency.exponentialRampToValueAtTime(P[0] * 1.6, t + P[1]);
+    else o.frequency.exponentialRampToValueAtTime(Math.max(48, P[0] * 0.55), t + P[1]);
+    g.gain.setValueAtTime(P[3], t);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + P[1]);
+    o.start(t); o.stop(t + P[1] + 0.02);
+  } catch (e) { /* 音频不可用就当静音 */ }
+}
+
+/* ------------------------------- 输入 -------------------------------- */
+const keys = Object.create(null);
+let pointer = { active: false, x: 0, y: 0 };
+
+/* =============================== 模拟 ================================ */
+// 纯模拟，不碰 DOM / 不渲染；只吃 S.rng ⇒ 同种子同结果
+function update(dt) {
+  if (!S || !S.started || S.over || S.paused || S.levelup) return;
+  dt = clamp(dt, 0, 0.05);           // 高刷屏 clamp，防穿墙
+  const P = S.player;
+  S.time += dt;
+
+  /* --- 输入方向 --- */
+  let mx = 0, my = 0;
+  if (pointer.active) {
+    const dx = pointer.x - P.x, dy = pointer.y - P.y, d = Math.hypot(dx, dy);
+    if (d > 6) { mx = dx / d; my = dy / d; }
+  } else {
+    if (keys["a"] || keys["arrowleft"]) mx -= 1;
+    if (keys["d"] || keys["arrowright"]) mx += 1;
+    if (keys["w"] || keys["arrowup"]) my -= 1;
+    if (keys["s"] || keys["arrowdown"]) my += 1;
+    const m = Math.hypot(mx, my); if (m > 0) { mx /= m; my /= m; }
+  }
+  if (mx || my) P.face = Math.atan2(my, mx);
+  const spd = P.speed * (1 + S.passives.spd * 0.08);
+  P.x += mx * spd * dt; P.y += my * spd * dt;
+  if (P.invuln > 0) P.invuln -= dt;
+
+  /* --- 刷怪 --- */
+  S.spawnTimer -= dt;
+  if (S.spawnTimer <= 0) {
+    const interval = clamp(1.15 - S.time / 300, 0.3, 1.15) / S.spawnMul;
+    S.spawnTimer = interval;
+    const n = 1 + Math.floor(S.time / 88);
+    for (let i = 0; i < n; i++) spawnEnemy(S, pickArchetype(S), false);
+  }
+  if (S.time >= S.nextBossAt) {
+    S.nextBossAt += BOSS_EVERY;
+    spawnEnemy(S, BOSS_ARCH, true);
+    S.fx.push({ kind: "pop", x: P.x, y: P.y - 70, t: 0, dur: 1.2, txt: "BOSS 来了", color: "#ff5b4d" });
+  }
+
+  /* --- 武器开火 --- */
+  const cdm = Math.pow(0.92, S.passives.cdr);
+  for (const w of S.weapons) {
+    const def = WEAPONS[w.id];
+    if (w.id === "lettuce") continue;
+    w.timer -= dt;
+    if (w.timer <= 0) { w.timer = def.cd(w.lvl) * cdm; def.fire(S, w); }
+  }
+  if (S.orbits.length) {
+    const w = S.weapons.find((x) => x.id === "lettuce");
+    for (const o of S.orbits) {
+      o.a += dt * 2.1;
+      o.x = P.x + Math.cos(o.a) * o.r; o.y = P.y + Math.sin(o.a) * o.r;
+      o.cd -= dt;
+      for (const e of S.enemies) {
+        if (e.dead) continue;
+        if (Math.hypot(e.x - o.x, e.y - o.y) < e.r + 11) {
+          if (o.cd <= 0) { hurtEnemy(S, e, o.dmg * (1 + S.passives.dmg * 0.1)); o.cd = 0.34; }
+          break;
+        }
+      }
+    }
+  }
+
+  /* --- 子弹 --- */
+  for (let i = S.bullets.length - 1; i >= 0; i--) {
+    const b = S.bullets[i];
+    if (b.homing) {
+      const t = nearestEnemy(S, b, 420);
+      if (t) {
+        const want = Math.atan2(t.y - b.y, t.x - b.x);
+        let d = ((want - b.ang + Math.PI * 3) % TAU) - Math.PI;
+        b.ang += clamp(d, -b.homing * dt, b.homing * dt);
+        const sp = Math.hypot(b.vx, b.vy);
+        b.vx = Math.cos(b.ang) * sp; b.vy = Math.sin(b.ang) * sp;
+      }
+    }
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    if (b.life <= 0) { S.bullets.splice(i, 1); continue; }
+    for (const e of S.enemies) {
+      if (e.dead || b.hit.has(e)) continue;
+      if (Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r) {
+        hurtEnemy(S, e, b.dmg); b.hit.add(e);
+        if (b.pierce-- <= 0) { S.bullets.splice(i, 1); break; }
+      }
+    }
+  }
+
+  /* --- 盐圈 --- */
+  for (let i = S.zones.length - 1; i >= 0; i--) {
+    const z = S.zones[i]; z.t += dt; z.tick -= dt;
+    if (z.tick <= 0) {
+      z.tick = 0.18;
+      for (const e of S.enemies) {
+        if (e.dead) continue;
+        if (Math.hypot(e.x - z.x, e.y - z.y) < z.r + e.r) hurtEnemy(S, e, z.dmg);
+      }
+    }
+    if (z.t >= z.dur) S.zones.splice(i, 1);
+  }
+
+  /* --- 敌人追击 / 接触伤害 --- */
+  for (const e of S.enemies) {
+    if (e.dead) continue;
+    e.wob += dt * 3;
+    const dx = P.x - e.x, dy = P.y - e.y, d = Math.hypot(dx, dy) || 1;
+    e.x += (dx / d) * e.speed * dt; e.y += (dy / d) * e.speed * dt;
+    if (e.flash > 0) e.flash -= dt;
+    if (e.hitCd > 0) e.hitCd -= dt;
+    if (d < e.r + P.r && e.hitCd <= 0 && P.invuln <= 0) {
+      P.hp -= e.dmg; e.hitCd = 0.6; P.invuln = 0.42; e.flash = 0.16;
+      S.fx.push({ kind: "pop", x: P.x, y: P.y - 26, t: 0, dur: 0.5, txt: `-${Math.round(e.dmg)}`, color: "#ff5b4d" });
+      sfx(S, "hurt");
+      if (P.hp <= 0) { P.hp = 0; endGame(S, false); return; }
+    }
+  }
+  S.enemies = S.enemies.filter((e) => !e.dead);
+
+  /* --- 经验宝石 --- */
+  const pr = P.pickup * (1 + S.passives.pickup * 0.18);
+  for (let i = S.gems.length - 1; i >= 0; i--) {
+    const g = S.gems[i];
+    const dx = P.x - g.x, dy = P.y - g.y, d = Math.hypot(dx, dy) || 1;
+    if (d < pr) { const s = clamp(560 - d * 1.6, 140, 560); g.x += (dx / d) * s * dt; g.y += (dy / d) * s * dt; }
+    else { g.x += g.vx * dt; g.y += g.vy * dt; g.vx *= 0.9; g.vy *= 0.9; }
+    if (d < P.r + g.r + 2) {
+      P.xp += g.val; S.gems.splice(i, 1);
+      while (P.xp >= P.xpNeed) {
+        P.xp -= P.xpNeed; P.level++; P.xpNeed = xpNeedFor(P.level);
+        S.levelup = { cards: rollCards(S), at: P.level };
+        sfx(S, "level");
+        break;
+      }
+    }
+  }
+
+  /* --- 掉落物 --- */
+  for (let i = S.drops.length - 1; i >= 0; i--) {
+    const dp = S.drops[i]; dp.t += dt;
+    if (Math.hypot(dp.x - P.x, dp.y - P.y) < P.r + dp.r + 6) {
+      if (dp.kind === "heart") { P.hp = Math.min(P.maxHp, P.hp + 26); toast("回血 +26"); }
+      if (dp.kind === "magnet") {
+        for (const g of S.gems) { g.x = P.x + (S.rng() - .5) * 30; g.y = P.y + (S.rng() - .5) * 30; }
+        toast("磁力吸经验");
+      }
+      S.drops.splice(i, 1);
+    }
+  }
+
+  /* --- 特效 --- */
+  for (let i = S.fx.length - 1; i >= 0; i--) { S.fx[i].t += dt; if (S.fx[i].t >= S.fx[i].dur) S.fx.splice(i, 1); }
+
+  /* --- 通关 --- */
+  if (S.time >= WIN_TIME) endGame(S, true);
+}
+
+function endGame(S, won) {
+  S.over = true; S.won = won; S.started = false;
+  S.survivedBest = Math.max(S.survivedBest, S.time);
+  sfx(S, "over");
+}
+function endGameExternal() { if (S && !S.over) endGame(S, S.time >= WIN_TIME); }
+
+/* =============================== 渲染 ================================ */
+let cv = null, cx = null, DPR = 1, W = 0, H = 0;
+function initCanvas() {
+  cv = document.getElementById("cv");
+  if (!cv) return false;
+  cx = cv.getContext("2d");
+  resize(); window.addEventListener("resize", resize);
+  return true;
+}
+function resize() {
+  if (!cv) return;
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = cv.clientWidth || window.innerWidth; H = cv.clientHeight || window.innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+}
+function render() {
+  if (!cx || !S) return;
+  const P = S.player;
+  const ox = W / 2 - P.x, oy = H / 2 - P.y;
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  cx.fillStyle = "#0d0b12"; cx.fillRect(0, 0, W, H);
+  drawGrid(ox, oy);
+
+  // 盐圈
+  for (const z of S.zones) {
+    const k = z.t / z.dur;
+    cx.beginPath(); cx.arc(z.x + ox, z.y + oy, z.r * (0.6 + k * 0.5), 0, TAU);
+    cx.fillStyle = `rgba(240,240,255,${0.22 * (1 - k)})`; cx.fill();
+  }
+  // 宝石 / 掉落
+  for (const g of S.gems) { cx.fillStyle = "#7de3ff"; cx.beginPath(); cx.arc(g.x + ox, g.y + oy, g.r, 0, TAU); cx.fill(); }
+  for (const dp of S.drops) {
+    cx.font = `${dp.r * 2}px serif`; cx.textAlign = "center"; cx.textBaseline = "middle";
+    cx.fillText(dp.kind === "heart" ? "❤️" : "🧲", dp.x + ox, dp.y + oy);
+  }
+  // 敌人
+  for (const e of S.enemies) {
+    const x = e.x + ox, y = e.y + oy;
+    cx.beginPath(); cx.arc(x, y, e.r, 0, TAU);
+    cx.fillStyle = e.flash > 0 ? "#ffffff" : e.color; cx.globalAlpha = e.boss ? 0.98 : 0.86; cx.fill(); cx.globalAlpha = 1;
+    cx.lineWidth = e.boss ? 3 : 1.5; cx.strokeStyle = e.boss ? "#ffd93d" : "rgba(0,0,0,.35)"; cx.stroke();
+    if (e.r >= 16 || e.boss) {
+      cx.font = `${e.boss ? 12 : 10}px system-ui,sans-serif`; cx.textAlign = "center"; cx.textBaseline = "middle";
+      cx.fillStyle = "rgba(0,0,0,.72)"; cx.fillText(e.arch.name, x + 1, y + 1);
+      cx.fillStyle = "#fff"; cx.fillText(e.arch.name, x, y);
+      // 血条
+      const w = e.r * 2, hp = clamp(e.hp / e.maxHp, 0, 1);
+      cx.fillStyle = "rgba(0,0,0,.5)"; cx.fillRect(x - w / 2, y - e.r - 7, w, 3);
+      cx.fillStyle = "#ff5b4d"; cx.fillRect(x - w / 2, y - e.r - 7, w * hp, 3);
+    }
+  }
+  // 子弹
+  for (const b of S.bullets) {
+    cx.beginPath(); cx.arc(b.x + ox, b.y + oy, b.r, 0, TAU); cx.fillStyle = b.color; cx.fill();
+  }
+  // 生菜护环
+  for (const o of S.orbits) {
+    cx.beginPath(); cx.arc(o.x + ox, o.y + oy, 11, 0, TAU); cx.fillStyle = "#3ddc84"; cx.fill();
+    cx.strokeStyle = "rgba(0,0,0,.3)"; cx.lineWidth = 1.5; cx.stroke();
+  }
+  // 玩家（薯条盒）
+  const px = P.x + ox, py = P.y + oy;
+  cx.save(); cx.translate(px, py); cx.rotate(P.face + Math.PI / 2);
+  cx.globalAlpha = P.invuln > 0 ? (Math.floor(S.time * 30) % 2 ? 0.35 : 1) : 1;
+  cx.fillStyle = "#ff3b30"; roundRect(-13, -8, 26, 26, 5); cx.fill();
+  cx.fillStyle = "#ffc72c"; for (let i = -1; i <= 1; i++) { roundRect(i * 7 - 2.5, -19, 5, 13, 2); cx.fill(); }
+  cx.fillStyle = "#fff"; cx.font = "bold 10px system-ui"; cx.textAlign = "center"; cx.textBaseline = "middle";
+  cx.fillText("M", 0, 7);
+  cx.restore(); cx.globalAlpha = 1;
+  // 特效
+  for (const f of S.fx) {
+    const k = f.t / f.dur;
+    if (f.kind === "ring") {
+      cx.beginPath(); cx.arc(f.x + ox, f.y + oy, f.r + (f.R - f.r) * k, 0, TAU);
+      cx.strokeStyle = f.color; cx.globalAlpha = 1 - k; cx.lineWidth = 4; cx.stroke(); cx.globalAlpha = 1;
+    } else if (f.kind === "pop") {
+      cx.globalAlpha = 1 - k; cx.fillStyle = f.color; cx.font = "bold 14px system-ui";
+      cx.textAlign = "center"; cx.fillText(f.txt, f.x + ox, f.y + oy - k * 26); cx.globalAlpha = 1;
+    }
+  }
+}
+function drawGrid(ox, oy) {
+  const g = 72;
+  const x0 = -((ox % g) + g) % g, y0 = -((oy % g) + g) % g;
+  cx.strokeStyle = "#191324"; cx.lineWidth = 1; cx.beginPath();
+  for (let x = x0; x < W + g; x += g) { cx.moveTo(x, 0); cx.lineTo(x, H); }
+  for (let y = y0; y < H + g; y += g) { cx.moveTo(0, y); cx.lineTo(W, y); }
+  cx.stroke();
+}
+function roundRect(x, y, w, h, r) {
+  cx.beginPath();
+  cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r);
+  cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r);
+  cx.arcTo(x, y, x + w, y, r); cx.closePath();
+}
+
+/* ============================== UI 层 ================================ */
+const $ = (id) => document.getElementById(id);
+function show(id) { const el = $(id); if (el) el.classList.add("on"); }
+function hide(id) { const el = $(id); if (el) el.classList.remove("on"); }
+let toastT = 0;
+function toast(txt) {
+  const el = $("toast"); if (!el) return;
+  el.textContent = txt; el.style.opacity = "1"; toastT = 1.1;
+}
+function fmtTime(t) {
+  const m = Math.floor(t / 60), s = Math.floor(t % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+function syncHud() {
+  if (!S) return;
+  const P = S.player;
+  const hp = $("hpFill"), xp = $("xpFill");
+  if (hp) hp.style.width = `${clamp(P.hp / P.maxHp, 0, 1) * 100}%`;
+  if (xp) xp.style.width = `${clamp(P.xp / P.xpNeed, 0, 1) * 100}%`;
+  const c = $("clock"); if (c) c.textContent = fmtTime(S.time);
+  const l = $("lvtag"); if (l) l.textContent = `Lv.${P.level} · 击杀 ${S.kills}`;
+}
+function renderLevelUp() {
+  const lu = S.levelup; if (!lu) return;
+  const list = $("cardList"); if (!list) return;
+  const sub = $("lvSub"); if (sub) sub.textContent = `Lv.${lu.at}  ─  选一个`;
+  list.innerHTML = "";
+  lu.cards.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "card"; b.type = "button";
+    b.innerHTML = `<span class="ic">${c.icon}</span><span><b>${c.name}${c.tag ? `<em class="tag">${c.tag}</em>` : ""}</b><span>${c.desc}</span></span>`;
+    b.onclick = () => { choose(i); hide("ovLevel"); if (!S.levelup) showNextOrResume(); };
+    list.appendChild(b);
+  });
+  show("ovLevel");
+}
+function showNextOrResume() {
+  if (S.levelup) { renderLevelUp(); return; }
+  if (S.over) { renderEnd(); return; }
+  if (S.paused) { show("ovPause"); }
+}
+function rankOf(S) {
+  const t = S.time, k = S.kills;
+  if (S.won) return k >= 900 ? "S+" : k >= 650 ? "S" : "A";
+  if (t >= 240) return "A";
+  if (t >= 150) return "B";
+  if (t >= 80) return "C";
+  return "D";
+}
+const RANK_NOTE = {
+  "S+": "薯条界的传说，餐盘里已经没有你的对手了。",
+  "S":  "这一份，出餐快、配料满、零失误。",
+  "A":  "稳住就能赢，最后那几十秒是心理战。",
+  "B":  "走位还行，构筑有点散——下一局先堆一把主武器。",
+  "C":  "热身局。记住：贴着敌人绕圈，比直线跑更省血。",
+  "D":  "刚出锅就被端走了。先把移动练顺，别站桩。"
+};
+function renderEnd() {
+  const P = S.player, r = rankOf(S);
+  const tk = $("endTitle"); if (tk) tk.textContent = S.won ? "通关！撑满了 5 分钟" : "这一局，没撑住";
+  const rk = $("rank"); if (rk) rk.textContent = r;
+  const st = $("endStats");
+  if (st) {
+    st.innerHTML =
+      `<div><span>存活</span><b>${fmtTime(S.time)}</b></div>` +
+      `<div><span>击杀</span><b>${S.kills}</b></div>` +
+      `<div><span>等级</span><b>Lv.${P.level}</b></div>` +
+      `<div><span>种子</span><b>${S.seed}</b></div>`;
+  }
+  const nt = $("endNote");
+  if (nt) nt.innerHTML = `${RANK_NOTE[r]}<br><span style="opacity:.7">本局已用真实营养数据驱动：击杀的每种餐品，血量/体型/速度都来自官方 kcal。</span>`;
+  show("ovEnd");
+}
+
+/* ============================== 主循环 =============================== */
+let lastT = 0, rafId = 0;
+function loop(t) {
+  rafId = requestAnimationFrame(loop);
+  const dt = lastT ? (t - lastT) / 1000 : 0; lastT = t;
+  if (S && !S.paused && !S.levelup && !S.over) update(dt);
+  render(); syncHud();
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) { const el = $("toast"); if (el) el.style.opacity = "0"; } }
+  if (S && S.levelup && !$("ovLevel").classList.contains("on")) renderLevelUp();
+  if (S && S.over && !$("ovEnd").classList.contains("on")) renderEnd();
+}
+function startGame(seed) {
+  reset(seed, { autoStart: true });
+  hide("ovStart"); hide("ovEnd"); hide("ovPause"); hide("ovLevel");
+  lastT = 0;
+  if (!rafId) rafId = requestAnimationFrame(loop);
+}
+function newSeed() { return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0; }
+
+/* ============================== 启动 ================================= */
+function boot() {
+  if (!initCanvas()) return;
+  const sp = new URLSearchParams(location.search);
+  const seed0 = (parseInt(sp.get("seed") || "0", 10) || newSeed()) >>> 0;
+  const hint = $("hint");
+  if (hint) hint.textContent = "自动开火 · 你只管走位（WASD / 方向键 / 拖动）";
+  const tag = $("seedTag"); if (tag) tag.textContent = `种子 ${seed0}`;
+  reset(seed0, { autoStart: false }); render(); syncHud();
+
+  $("btnStart").onclick = () => startGame(seed0);
+  $("btnSeed").onclick = () => {
+    const s = newSeed(); reset(s, { autoStart: false });
+    if (tag) tag.textContent = `种子 ${s}`; render(); syncHud();
+    $("btnStart").onclick = () => startGame(s);
+  };
+  $("btnAgain").onclick = () => startGame(newSeed());
+  $("btnHome").onclick = () => { location.href = "./index.html"; };
+  $("btnResume").onclick = () => { if (S) { S.paused = false; hide("ovPause"); } };
+  $("btnRestart").onclick = () => startGame(newSeed());
+  $("btnMute").onclick = () => { muted = !muted; $("btnMute").textContent = muted ? "取消静音" : "静音切换"; };
+
+  window.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    keys[k] = true;
+    if (k === "p" || k === "escape") {
+      if (S && S.started && !S.over && !S.levelup) {
+        S.paused = !S.paused; S.paused ? show("ovPause") : hide("ovPause");
+      }
+    }
+    if (k === "m") { muted = !muted; toast(muted ? "静音" : "音效开"); }
+    if (k === "r" && S) startGame(newSeed());
+    if (S && S.levelup && ["1", "2", "3"].includes(k)) { choose(+k - 1); hide("ovLevel"); }
+    if (k === " " && !S.started && !S.over) startGame(seed0);
+  });
+  window.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
+
+  const pos = (e) => {
+    const r = cv.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    pointer.x = (t.clientX - r.left - W / 2) + S.player.x;
+    pointer.y = (t.clientY - r.top - H / 2) + S.player.y;
+  };
+  const on = (e) => { pointer.active = true; pos(e); };
+  const off = () => { pointer.active = false; };
+  window.addEventListener("pointerdown", on); window.addEventListener("pointermove", (e) => { if (pointer.active) pos(e); });
+  window.addEventListener("pointerup", off); window.addEventListener("pointercancel", off);
+  if (window.matchMedia && window.matchMedia("(pointer:coarse)").matches && hint) hint.textContent = "按住屏幕拖动 · 自动开火";
+}
+if (typeof document !== "undefined" && document.getElementById) boot();
+
+/* ============================ 对外接口 =============================== */
+// 供无头回归使用：只暴露模拟，不含渲染
+const API = {
+  VERSION, WEAPONS, PASSIVES, ARCH,
+  keys, pointer,               // 暴露输入状态：无头测试用它驱动机器人走位
+  reset: (seed, opt) => reset(seed >>> 0, opt),
+  update: (dt) => update(dt),
+  choose: (i) => choose(i),
+  state: () => S,
+  snapshot: () => S && ({
+    time: S.time, over: S.over, won: S.won, kills: S.kills,
+    level: S.player.level, hp: S.player.hp, maxHp: S.player.maxHp,
+    enemies: S.enemies.length, bullets: S.bullets.length, gems: S.gems.length,
+    weapons: S.weapons.map((w) => `${w.id}:${w.lvl}`),
+    passives: Object.assign({}, S.passives),
+    pendingCards: S.levelup ? S.levelup.cards.length : 0
+  }),
+  // 便捷：跑 n 秒（每步 dt），自动选卡（picker 返回索引，默认 0）
+  run: (seconds, dt, picker) => {
+    const steps = Math.round(seconds / dt); let picks = 0;
+    for (let i = 0; i < steps; i++) {
+      update(dt);
+      if (S.levelup) { const idx = picker ? picker(S.levelup.cards, picks) : 0; choose(idx); picks++; }
+      if (S.over) break;
+    }
+    return { picks };
+  }
+};
+if (typeof globalThis !== "undefined") globalThis.McSurvivor = API;
+})();
+</script>
+</body>
+</html>

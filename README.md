@@ -34,6 +34,11 @@
 
 ## 30 秒上手
 
+> 🎮 **就想直接玩？** 这里有两种玩法。除了下面这套「三回合点餐」，
+> 还有一个**幸存者类小游戏**：[**麦门幸存者 McSurvivor**](./docs/neon.html)
+> —— 自动开火 + 走位 + 三选一构筑，敌人的血量与速度同样由真实营养数据派生。
+> 在线玩：**https://langlangagowith.github.io/mcd-rogue/neon.html**
+
 ### 方式一：直接玩（无需任何配置）
 
 打开 [`docs/index.html`](./docs/index.html) —— **单文件、离线可玩**，

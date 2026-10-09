@@ -108,6 +108,7 @@ mcd-rogue/
 │   └─ cardpool.json          # 游戏卡池（菜单价格 × 官方营养，按名对齐）
 ├─ docs/
 │   ├─ index.html             # 构建产物：单文件可玩网页版（GitHub Pages 入口）
+│   ├─ neon.html              # 构建产物：麦门幸存者（幸存者类小游戏，单文件）
 │   └─ DESIGN.md              # 本文件
 ├─ scripts/
 │   ├─ score.py               # 确定性结算引擎（纯函数，可单测）
@@ -115,9 +116,12 @@ mcd-rogue/
 │   ├─ fetch_snapshot.py      # 从 MCP 导出公开数据快照
 │   ├─ build_cardpool.py      # 菜单 × 营养 → 游戏卡池
 │   ├─ build_web.py           # 注入数据 → docs/index.html
-│   └─ smoke_web.mjs          # 网页版无头冒烟测试
+│   ├─ build_neon.py          # 注入营养数据 → docs/neon.html
+│   ├─ smoke_web.mjs          # 网页版无头冒烟测试
+│   └─ smoke_neon.mjs         # 麦门幸存者无头冒烟测试
 └─ web/
-    └─ template.html          # 网页版模板（数据由 build_web.py 注入）
+    ├─ template.html          # 网页版模板（数据由 build_web.py 注入）
+    └─ neon-template.html     # 幸存者模板（营养数据由 build_neon.py 注入）
 ```
 
 > 关于必需文件的说明：官方 `README.md` 的表格与 `activityGuidelines.md` 列出的清单
