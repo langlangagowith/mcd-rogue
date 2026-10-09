@@ -41,9 +41,9 @@
   .card b{display:block;font-size:15px;margin-bottom:2px}
   .card span{color:var(--dim);font-size:12.5px}
   .tag{display:inline-block;padding:1px 6px;border-radius:6px;font-size:11px;background:#2b2338;color:#c9c0db;margin-left:6px}
-  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin:14px 0}
-  .stats div{display:flex;justify-content:space-between;border-bottom:1px dashed #2a2236;padding-bottom:6px}
-  .stats b{font-variant-numeric:tabular-nums}
+  .stats{display:flex;flex-wrap:wrap;gap:8px 14px;margin:14px 0}
+  .stats div{flex:1 1 44%;display:flex;justify-content:space-between;border-bottom:1px dashed #2a2236;padding-bottom:6px}
+  .stats div b{font-variant-numeric:tabular-nums}
   .rank{font-size:34px;font-weight:900;letter-spacing:2px;color:var(--gold);text-align:center;margin:6px 0 2px}
   .note{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.7}
   #hud{position:fixed;left:0;right:0;top:0;padding:8px 12px;pointer-events:none;z-index:5;
