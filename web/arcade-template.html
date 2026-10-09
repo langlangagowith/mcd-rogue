@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>麦门开饭 McChow —— 出餐口大作战</title>
+<style>
+  :root{
+    --bg:#0a0710; --panel:rgba(24,15,30,.95); --line:#3d2b4a;
+    --gold:#ffcc33; --red:#ff3b30; --txt:#f4eeff; --dim:#aa9cbe;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg);
+    color:var(--txt);font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  /* 高度用 dvh 兜底地址栏：老内核不认 dvh 会退回上一行 100vh */
+  #cv{display:block;width:100%;height:100vh;height:100dvh;touch-action:none}
+
+  #hud{position:fixed;left:0;right:0;top:0;padding:8px 12px;display:flex;align-items:flex-start;
+    justify-content:space-between;gap:10px;pointer-events:none;font-size:13px;line-height:1.35}
+  .box{background:rgba(12,7,18,.62);border:1px solid rgba(255,255,255,.09);border-radius:10px;
+    padding:6px 10px;backdrop-filter:blur(2px)}
+  .lab{color:var(--dim);font-size:10px;letter-spacing:.08em}
+  .val{font-weight:800;font-variant-numeric:tabular-nums;font-size:17px}
+  #combo{color:var(--gold);font-size:12px;font-weight:800;min-height:15px}
+  /* 胃容量条：吃撑是唯一的结束条件，所以它是全场最重要的一根条 */
+  #gutWrap{position:fixed;left:12px;right:12px;bottom:12px;pointer-events:none}
+  #gutBar{height:10px;border-radius:6px;background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.12);overflow:hidden}
+  #gutFill{height:100%;width:0%;border-radius:6px;
+    background:linear-gradient(90deg,#7ee787,#ffd93d);transition:width .16s linear}
+  #gutTip{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-bottom:4px}
+
+  #hint{position:fixed;left:0;right:0;bottom:46px;text-align:center;font-size:11px;
+    color:var(--dim);pointer-events:none}
+  #toast{position:fixed;left:0;right:0;top:46%;text-align:center;font-weight:900;font-size:20px;
+    color:var(--gold);text-shadow:0 2px 12px rgba(0,0,0,.8);opacity:0;pointer-events:none;
+    transition:opacity .18s, transform .18s;transform:scale(.9)}
+  #toast.on{opacity:1;transform:scale(1)}
+
+  /* 遮罩一律 flex（不用 grid：微信 X5 等老内核不支持，会塌成竖排） */
+  .ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;
+    background:radial-gradient(120% 90% at 50% 0%,rgba(255,59,48,.16),transparent 62%),rgba(6,4,10,.88);
+    z-index:10;overflow:auto}
+  .ov.on{display:flex}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 16px;
+    width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+  .card h1{margin:0 0 2px;font-size:21px;letter-spacing:.02em}
+  .card h2{margin:0 0 10px;font-size:17px}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:12px;line-height:1.6}
+  .rules{font-size:12.5px;line-height:1.85;color:#ded5ef;margin:0 0 12px;padding-left:18px}
+  .rules b{color:var(--gold)}
+  .stats{display:flex;flex-wrap:wrap;gap:6px 10px;margin:10px 0}
+  .stats div{flex:1 1 44%;display:flex;justify-content:space-between;gap:8px;
+    border-bottom:1px dashed #35284a;padding-bottom:5px;font-size:12.5px}
+  .stats b{font-variant-numeric:tabular-nums}
+  .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  button{font:inherit;font-weight:700;border-radius:11px;padding:11px 16px;border:1px solid transparent;
+    background:#2c2039;color:var(--txt);cursor:pointer;flex:1 1 auto}
+  button.primary{background:linear-gradient(180deg,#ffd24d,#ff9f1c);color:#2a1a00;border-color:#ffd98a}
+  button.small{flex:0 0 auto;padding:9px 12px;font-size:12px}
+  button:active{transform:translateY(1px)}
+  #reportImg{display:block;width:100%;border-radius:12px;border:1px solid var(--line);margin-top:10px}
+  .note{color:var(--dim);font-size:11px;margin-top:8px;line-height:1.6}
+  .kbd{display:inline-block;padding:1px 6px;border-radius:5px;background:#332545;
+    border:1px solid #4a3560;font-size:11px}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud">
+  <div class="box">
+    <div class="lab">得分</div>
+    <div class="val" id="score">0</div>
+    <div id="combo"></div>
+  </div>
+  <div class="box" style="text-align:right">
+    <div class="lab">已吃</div>
+    <div class="val" id="eaten">0</div>
+    <div class="lab" style="margin-top:3px">热量 <b id="kcal">0</b> kcal</div>
+  </div>
+</div>
+
+<div id="gutWrap">
+  <div id="gutTip"><span>胃容量</span><span id="gutTxt">0%</span></div>
+  <div id="gutBar"><div id="gutFill"></div></div>
+</div>
+
+<div id="hint"></div>
+<div id="toast"></div>
+
+<div class="ov" id="ovStart">
+  <div class="card">
+    <h1>麦门开饭 · 出餐口大作战</h1>
+    <div class="sub">顶上的倾斜出料口会把<b style="color:var(--gold)">真实菜单</b>上的餐品一件件倒下来。
+      跑过去吃掉它们——<b style="color:var(--gold)">吃撑了这局就结束</b>。</div>
+    <ul class="rules">
+      <li>吃到手 +分数，<b>空中接到是地上的两倍</b></li>
+      <li>每件食物的<b>热量直接算进胃里</b>——安格斯厚牛堡一件顶三份小食</li>
+      <li><b>连着吃 3 个同类</b>会「腻」：连击清零，还会慢下来</li>
+      <li>金色<b>优惠券</b>掉下来时抢着吃：清 12% 胃容量 + 6 秒双倍分</li>
+    </ul>
+    <div class="btns">
+      <button class="primary" id="btnStart">开饭</button>
+      <button class="small" id="btnSeed">换种子</button>
+    </div>
+    <div class="note" id="seedNote"></div>
+    <div class="note">键盘 <span class="kbd">WASD</span> / <span class="kbd">方向键</span> 移动 ·
+      手机按住屏幕拖动 · <span class="kbd">P</span> 暂停 · <span class="kbd">M</span> 静音 · <span class="kbd">R</span> 重开</div>
+  </div>
+</div>
+
+<div class="ov" id="ovPause">
+  <div class="card">
+    <h2>歇口气</h2>
+    <div class="sub">胃里的东西还没消化完。</div>
+    <div class="stats" id="pauseStats"></div>
+    <div class="btns">
+      <button class="primary" id="btnResume">继续吃</button>
+      <button id="btnQuit">收工结算</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ovEnd">
+  <div class="card">
+    <h2 id="endTitle">吃撑了</h2>
+    <div class="sub" id="endSub"></div>
+    <div class="stats" id="endStats"></div>
+    <div class="note" id="endNote"></div>
+    <img id="reportImg" alt="战报">
+    <div class="btns">
+      <button class="primary" id="btnAgain">再来一局</button>
+      <button class="small" id="btnSave">保存战报</button>
+    </div>
+    <div class="note">手机上长按上图即可保存；电脑点「保存战报」下载。</div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* =========================================================================
+   麦门开饭 McChow —— 出餐口大作战
+   固定单屏 · 倾斜出料口倒食材 · 玩家跑去吃 · 吃撑结束
+
+   数据来源：麦当劳官方 MCP（query-meals / list-nutrition-foods）
+   本文件是构建产物，食物清单与立绘由 scripts/build_arcade.py 注入。
+   零外部依赖：不 fetch、不引图片文件、不引字体；立绘以 data URL 内联，
+   音效全部由 Web Audio 现场合成 ⇒ 断网双击也能玩。
+   ========================================================================= */
+
+const VERSION = "2.0.0";
+const FOODS = /*__FOODS__*/;
+const SPRITES = /*__SPRITES__*/;
+
+/* ------------------------------ 基础工具 ------------------------------ */
+
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/** 确定性随机：同一个种子必然产生同一局，无头回归才有意义。 */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const $ = (id) => (typeof document !== "undefined" ? document.getElementById(id) : null);
+
+/* ------------------------------ 品类配色 ------------------------------ */
+
+const CAT_COLOR = {
+  "主食": "#ff8a3d", "小食": "#ffd93d", "甜品": "#ff7bc8",
+  "饮品": "#5ec8ff", "饮料": "#5ec8ff", "咖啡": "#c79a6b",
+  "套餐": "#ff5b4d", "其他": "#ff6f61"
+};
+const catColor = (c) => CAT_COLOR[c] || CAT_COLOR["其他"];
+
+/** 品类 → 立绘 slug 兜底（正常情况 build 阶段已算好 f.s）。 */
+const CAT_SLUG = {
+  "主食": "burger-double", "小食": "fries", "甜品": "cone",
+  "饮品": "cola", "饮料": "cola", "咖啡": "coffee",
+  "套餐": "burger-double", "其他": "nuggets"
+};
+const slugOf = (f) => f.s || CAT_SLUG[f.c] || "burger-double";
+
+/* ---------------------------- 可调数值（平衡） ---------------------------- */
+
+const CFG = {
+  FULLNESS_MAX: 100,     // 胃容量上限；吃满即结束
+  GRAVITY: 1250,         // px/s^2
+  GROUND_H: 26,          // 地面条高度
+  PLAYER_R: 19,
+  PLAYER_ACC: 15,        // 速度趋近系数（越大越"跟手"）
+  PLAYER_SPEED: 268,     // px/s
+  PLAYER_SPEED_SICK: 0.62,
+  HOPPER_BASE_Y: 74,     // 出料口中心高度（要让开顶部 HUD）
+  HOPPER_SWING: 0.31,    // 摆幅（占屏宽比例）
+  HOPPER_W: 0.86,        // 摆动角速度 rad/s
+  HOPPER_TILT: 0.42,     // 最大倾角 rad
+  SPIT_VY: 96,           // 出料竖直初速
+  SPIT_VX: 168,          // 出料水平初速上限（乘 sin(tilt)）
+  SPAWN_START: 1.42,     // 初始出料间隔 s
+  SPAWN_MIN: 0.66,
+  SPAWN_RAMP: 105,       // 多少秒后到最快
+  REST_LIFE: 6.2,        // 落地后多久消失 s
+  BOUNCE: 0.42,
+  COUPON_EVERY: 20,      // 优惠券掉落间隔（带抖动）s
+  COUPON_HEAL: 12,       // 吃到优惠券清掉的胃容量
+  DOUBLE_TIME: 6,        // 双倍分时长 s
+  SICK_TIME: 2.6,        // 「腻」持续 s
+  SICK_AT: 3,            // 连续几个同类触发「腻」
+  GROUND_SCORE: 0.5,     // 地上捡到的得分系数
+  COMBO_STEP: 0.1,       // 每层连击加成
+  COMBO_MAX: 20          // 连击加成层数上限（倍率上限 3.0）
+};
+
+const RANKS = [
+  [4200, "麦门宗师", "这份胃口，出餐口都跟不上了。"],
+  [2600, "大胃王", "机器倒多快你就吃多快。"],
+  [1500, "老饕", "吃得讲究，也吃得不少。"],
+  [800, "熟客", "节奏找到了，就是有点贪心。"],
+  [0, "新手", "先学会别吃撑——真的很难。"]
+];
+
+/* -------------------------------- 状态 -------------------------------- */
+
+let S = null;
+let rng = mulberry32(1);
+
+function emptyState(seed) {
+  return {
+    seed: seed >>> 0,
+    time: 0,
+    over: false,
+    started: false,
+    paused: false,
+    endReason: "stuffed",
+    muted: false,
+    player: { x: 0, y: 0, vx: 0, vy: 0, r: CFG.PLAYER_R, face: 1, mouth: 0, bob: 0, squash: 0 },
+    hopper: { x: 0, y: CFG.HOPPER_BASE_Y, tilt: 0, fire: 0 },
+    items: [],
+    parts: [],
+    texts: [],
+    score: 0,
+    combo: 0,
+    bestCombo: 0,
+    eaten: 0,
+    kcal: 0,
+    priceYuan: 0,
+    fullness: 0,
+    catCount: {},
+    lastCat: "",
+    sameCat: 0,
+    sickTimes: 0,
+    sickUntil: -1,
+    sickCat: "",
+    doubleUntil: -1,
+    coupons: 0,
+    spawnT: 0.8,
+    couponT: CFG.COUPON_EVERY,
+    shake: 0,
+    flash: 0,
+    ringUntil: -1,
+    w: 360,
+    h: 640
+  };
+}
+
+/* ------------------------------ 由数据派生 ------------------------------ */
+
+/** 体量由真实热量决定：越高的热量 → 越大越沉（下落越"实"），分数也越高。 */
+function radiusOf(kcal) { return clamp(15 + kcal / 46, 15, 46); }
+
+/** 吃进肚子里的饱腹度：直接由官方 kcal / 10 得来，最低 1。 */
+function fullnessOf(kcal) { return Math.max(1, Math.round(kcal / 10)); }
+
+/** 连击倍率：1 + 层数×0.1，封顶 3.0。 */
+function comboMult(combo) {
+  return 1 + Math.min(combo, CFG.COMBO_MAX) * CFG.COMBO_STEP;
+}
+
+function scoreOf(kcal, fresh, dv) {
+  const base = Math.round(12 + kcal / 8);
+  return Math.round(base * comboMult(dv) * (fresh ? 1 : CFG.GROUND_SCORE));
+}
+
+function rankOf(score) {
+  for (const r of RANKS) if (score >= r[0]) return r;
+  return RANKS[RANKS.length - 1];
+}
+
+function pickFood(rand) {
+  if (!FOODS.length) {
+    return { n: "薯条", p: 13, k: 300, c: "小食", s: "fries" };
+  }
+  // 权重与热量成反比：小食更常来，大件是"事件"。再按时间轻微放大热量占比。
+  const bias = 1 + Math.min(S.time / 120, 0.9);
+  let total = 0;
+  const w = FOODS.map((f) => {
+    const v = Math.pow(320 / Math.max(60, f.k), bias);
+    total += v; return v;
+  });
+  let x = rand() * total;
+  for (let i = 0; i < FOODS.length; i++) { x -= w[i]; if (x <= 0) return FOODS[i]; }
+  return FOODS[FOODS.length - 1];
+}
+
+/* -------------------------------- 特效 -------------------------------- */
+
+function burst(x, y, color, n, opt) {
+  const o = opt || {};
+  for (let i = 0; i < n; i++) {
+    const a = rng() * TAU, sp = (o.sp || 150) * (0.35 + rng());
+    S.parts.push({
+      x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (o.lift || 40),
+      life: 0, max: (o.life || 0.52) * (0.6 + rng() * 0.8),
+      size: (o.size || 4) * (0.55 + rng()),
+      color: o.rainbow ? hsl(rng() * 360, 92, 62) : color,
+      grav: o.grav == null ? 620 : o.grav,
+      spin: (rng() - 0.5) * 12,
+      rot: rng() * TAU,
+      kind: o.kind || "dot"
+    });
+  }
+}
+
+function hsl(h, s, l) { return "hsl(" + ((h % 360 + 360) % 360).toFixed(0) + "," + s + "%," + l + "%)"; }
+
+function popText(x, y, txt, color) {
+  S.texts.push({ x, y, txt, color: color || "#fff", life: 0, max: 0.85 });
+}
+
+function toast(txt) {
+  const el = $("toast");
+  if (!el) return;
+  el.textContent = txt;
+  el.classList.add("on");
+  if (toast._t) clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove("on"), 620);
+}
+
+/* -------------------------------- 音效 -------------------------------- */
+
+let AC = null;
+function actx() {
+  if (AC) return AC;
+  const C = (typeof window !== "undefined") && (window.AudioContext || window.webkitAudioContext);
+  if (!C) return null;
+  try { AC = new C(); } catch (e) { AC = null; }
+  return AC;
+}
+
+function tone(freq, dur, opt) {
+  const ac = actx();
+  if (!ac || S.muted) return;
+  const o = opt || {};
+  const osc = ac.createOscillator(), g = ac.createGain();
+  osc.type = o.type || "sine";
+  const t0 = ac.currentTime;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (o.to) osc.frequency.exponentialRampToValueAtTime(Math.max(30, o.to), t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(o.gain == null ? 0.14 : o.gain, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(g).connect(ac.destination);
+  osc.start(t0); osc.stop(t0 + dur + 0.03);
+}
+
+/** 低通噪声：咀嚼/落地这类"没有音高"的声音用它，比振荡器自然得多。 */
+function noiseHit(dur, opt) {
+  const ac = actx();
+  if (!ac || S.muted) return;
+  const o = opt || {};
+  const n = Math.max(1, Math.floor(ac.sampleRate * dur));
+  const buf = ac.createBuffer(1, n, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < n; i++) {
+    last = (last + 0.34 * (Math.random() * 2 - 1)) / 1.34;  // 一阶低通，削掉刺耳高频
+    d[i] = last * (1 - i / n);                              // 线性衰减包络
+  }
+  const src = ac.createBufferSource(); src.buffer = buf;
+  const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = o.cut || 900;
+  const g = ac.createGain(); g.gain.value = o.gain == null ? 0.3 : o.gain;
+  src.connect(f).connect(g).connect(ac.destination);
+  src.start();
+}
+
+const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26];
+
+function sfx(kind, v) {
+  if (kind === "chomp") {
+    noiseHit(0.085, { cut: 1150, gain: 0.24 });
+    tone(170 + Math.min(v || 0, 12) * 9, 0.07, { type: "triangle", gain: 0.1 });
+  } else if (kind === "combo") {
+    const st = SCALE[Math.min(v || 0, SCALE.length - 1)];
+    tone(660 * Math.pow(2, st / 12), 0.16, { type: "sine", gain: 0.12 });
+  } else if (kind === "coin") {
+    tone(988, 0.07, { type: "triangle", gain: 0.13 });
+    setTimeout(() => tone(1319, 0.14, { type: "triangle", gain: 0.12 }), 70);
+  } else if (kind === "splat") {
+    noiseHit(0.13, { cut: 380, gain: 0.15 });
+  } else if (kind === "sick") {
+    tone(240, 0.26, { type: "sawtooth", to: 96, gain: 0.13 });
+    tone(254, 0.26, { type: "sawtooth", to: 101, gain: 0.09 });  // 差两个半音，故意不谐和
+  } else if (kind === "stuffed") {
+    tone(150, 0.7, { type: "sawtooth", to: 52, gain: 0.2 });
+    noiseHit(0.5, { cut: 300, gain: 0.12 });
+  }
+}
+
+/* -------------------------------- 生成 -------------------------------- */
+
+function hopperMouth(h) {
+  const sx = Math.sin(h.tilt) * 16, sy = Math.cos(h.tilt) * 16;
+  return { x: h.x + sx, y: h.y + sy };
+}
+
+function spawnFood(f, x, y, vx, vy) {
+  const r = radiusOf(f.k);
+  S.items.push({
+    f, r, x, y, vx, vy, rot: (rng() - 0.5) * 0.5, vrot: (rng() - 0.5) * 2.4,
+    fresh: true, rest: false, life: 0
+  });
+  return S.items[S.items.length - 1];
+}
+
+function spawnCoupon(atX, atY) {
+  const h = S.hopper, m = hopperMouth(h);
+  S.items.push({
+    f: { n: "优惠券", p: 0, k: 0, c: "券", s: "coupon" },
+    r: 20, x: atX == null ? m.x : atX, y: atY == null ? m.y : atY,
+    vx: atX == null ? Math.sin(h.tilt) * 150 : 0, vy: atY == null ? 96 : 0,
+    rot: (rng() - 0.5) * 0.6, vrot: (rng() - 0.5) * 3.2,
+    fresh: true, rest: false, life: 0, coupon: true
+  });
+  h.fire = 0.24;
+  sfx("coin");
+}
+
+function spawnInterval() {
+  const k = clamp(S.time / CFG.SPAWN_RAMP, 0, 1);
+  return lerp(CFG.SPAWN_START, CFG.SPAWN_MIN, k);
+}
+
+function spawnTick(dt) {
+  S.spawnT -= dt;
+  if (S.spawnT <= 0) {
+    const h = S.hopper, m = hopperMouth(h);
+    S.spawnT = spawnInterval() * (0.75 + rng() * 0.5);
+    spawnFood(pickFood(rng), m.x, m.y,
+      Math.sin(h.tilt) * CFG.SPIT_VX + (rng() - 0.5) * 40,
+      CFG.SPIT_VY + rng() * 45);
+    h.fire = 0.2;
+  }
+  S.couponT -= dt;
+  if (S.couponT <= 0) {
+    S.couponT = CFG.COUPON_EVERY * (0.8 + rng() * 0.7);
+    spawnCoupon();
+  }
+}
+
+/* -------------------------------- 吃 ---------------------------------- */
+
+function eat(idx) {
+  const it = S.items[idx];
+  const p = S.player;
+
+  if (it.coupon) {
+    S.coupons++;
+    S.fullness = Math.max(0, S.fullness - CFG.COUPON_HEAL);
+    S.doubleUntil = S.time + CFG.DOUBLE_TIME;
+    burst(it.x, it.y, "#ffd24d", 30, { sp: 230, life: 0.75, rainbow: true, size: 5, lift: 90 });
+    burst(it.x, it.y, "#fff3c4", 14, { sp: 120, life: 0.6, size: 3 });
+    popText(it.x, it.y - 12, "-" + CFG.COUPON_HEAL + "% 胃", "#ffd24d");
+    toast("双倍分 " + CFG.DOUBLE_TIME + " 秒！");
+    sfx("coin");
+    S.items.splice(idx, 1);
+    return;
+  }
+
+  const f = it.f;
+  const color = catColor(f.c);
+  const dv = S.time < S.doubleUntil ? S.combo + 6 : S.combo;   // 双倍期直接给高倍率
+  const gain = scoreOf(f.k, it.fresh, dv) * (S.time < S.doubleUntil ? 2 : 1);
+  S.score += gain;
+  S.eaten++;
+  S.kcal += f.k;
+  S.priceYuan += f.p || 0;
+  S.fullness = Math.min(CFG.FULLNESS_MAX + 40, S.fullness + fullnessOf(f.k));
+  S.catCount[f.c] = (S.catCount[f.c] || 0) + 1;
+
+  // 连击 + 「腻」判定
+  if (f.c === S.lastCat) S.sameCat++; else { S.lastCat = f.c; S.sameCat = 1; }
+  if (S.sameCat >= CFG.SICK_AT) {
+    S.sickTimes++;
+    S.sickUntil = S.time + CFG.SICK_TIME;
+    S.sickCat = f.c;
+    S.combo = 0; S.sameCat = 0; S.lastCat = "";
+    burst(it.x, it.y, "#8f9b7a", 22, { sp: 150, life: 0.7, size: 4, lift: 0, grav: -40 });
+    popText(p.x, p.y - 34, "腻了！", "#b8c49a");
+    toast("连着吃 3 个" + f.c + "，腻了");
+    sfx("sick");
+  } else {
+    S.combo++;
+    if (S.combo > S.bestCombo) S.bestCombo = S.combo;
+    sfx("chomp", S.combo);
+    if (S.combo > 1 && S.combo % 5 === 0) {
+      sfx("combo", Math.floor(S.combo / 5));
+      S.ringUntil = S.time + 0.45;
+      toast("连击 x" + S.combo);
+    }
+  }
+
+  // 炫彩爆裂：主体按品类上色 + 一圈彩虹
+  burst(it.x, it.y, color, 16, { sp: 190, life: 0.55, size: 4.4 });
+  burst(it.x, it.y, color, 8, { sp: 300, life: 0.42, size: 3, rainbow: true });
+  popText(it.x, it.y - 10, "+" + gain + "  " + f.k + "kcal", color);
+
+  p.mouth = 1;
+  p.squash = 1;
+  S.shake = Math.min(6, 2 + f.k / 260);
+  S.items.splice(idx, 1);
+
+  if (S.fullness >= CFG.FULLNESS_MAX) endGame();
+}
+
+/* -------------------------------- 模拟 -------------------------------- */
+
+function update(dt) {
+  // 未点「开饭」前世界完全冻结：否则开始遮罩背后时间在走、料在掉（静帧被覆盖）
+  if (!S || !S.started || S.over || S.paused) return;
+  dt = clamp(dt, 0, 0.05);        // 掉帧/切后台回来时别让物理一步跨太远
+  S.time += dt;
+
+  const p = S.player, h = S.hopper;
+  const sick = S.time < S.sickUntil;
+
+  /* --- 出料口摆动 --- */
+  const ph = S.time * CFG.HOPPER_W;
+  h.x = S.w * 0.5 + Math.sin(ph) * S.w * CFG.HOPPER_SWING;
+  h.tilt = -Math.cos(ph) * CFG.HOPPER_TILT;
+  if (h.fire > 0) h.fire -= dt;
+
+  /* --- 玩家输入 --- */
+  let tx = 0, ty = 0;
+  if (pointer.active) {
+    tx = pointer.x - p.x; ty = pointer.y - p.y;
+    const d = Math.hypot(tx, ty);
+    if (d > 6) { tx /= d; ty /= d; } else { tx = 0; ty = 0; }
+  } else {
+    if (keys.left) tx -= 1;
+    if (keys.right) tx += 1;
+    if (keys.up) ty -= 1;
+    if (keys.down) ty += 1;
+    const d = Math.hypot(tx, ty);
+    if (d > 0) { tx /= d; ty /= d; }
+  }
+  const spd = CFG.PLAYER_SPEED * (sick ? CFG.PLAYER_SPEED_SICK : 1);
+  const k = 1 - Math.exp(-CFG.PLAYER_ACC * dt);
+  p.vx = lerp(p.vx, tx * spd, k);
+  p.vy = lerp(p.vy, ty * spd, k);
+  p.x += p.vx * dt;
+  p.y += p.vy * dt;
+  p.x = clamp(p.x, p.r, S.w - p.r);
+  p.y = clamp(p.y, p.r + 30, S.h - CFG.GROUND_H - p.r);
+  if (Math.abs(p.vx) > 12) p.face = p.vx > 0 ? 1 : -1;
+  p.bob += dt * Math.min(14, Math.hypot(p.vx, p.vy) / 22);
+  p.mouth = Math.max(0, p.mouth - dt * 5);
+  p.squash = Math.max(0, p.squash - dt * 4);
+
+  /* --- 出料 --- */
+  spawnTick(dt);
+
+  /* --- 食物：抛物线、落地弹一下、躺平后过期 --- */
+  const groundY = S.h - CFG.GROUND_H;
+  for (let i = S.items.length - 1; i >= 0; i--) {
+    const it = S.items[i];
+    it.life += dt;
+    if (it.rest) {
+      // ⚠ 落地的那件也吃得到（得分减半）—— 这是"要不要跑过去捡"的决策前提；
+      //   少了这段，玩家碰到地面食物毫无反应，GROUND_SCORE 也成了死代码。
+      const gdx = it.x - p.x, gdy = it.y - p.y;
+      if (gdx * gdx + gdy * gdy <= (it.r + p.r) * (it.r + p.r)) { eat(i); continue; }
+      if (it.life > CFG.REST_LIFE) {
+        burst(it.x, it.y, "#6b5c7d", 10, { sp: 60, life: 0.5, size: 3, grav: -30 });
+        S.items.splice(i, 1);
+      }
+      continue;
+    }
+    it.vy += CFG.GRAVITY * dt;
+    it.x += it.vx * dt;
+    it.y += it.vy * dt;
+    it.rot += it.vrot * dt;
+    if (it.x < it.r) { it.x = it.r; it.vx = Math.abs(it.vx) * 0.6; }
+    if (it.x > S.w - it.r) { it.x = S.w - it.r; it.vx = -Math.abs(it.vx) * 0.6; }
+    if (it.y + it.r >= groundY) {
+      it.y = groundY - it.r;
+      if (Math.abs(it.vy) > 110) {
+        it.vy = -Math.abs(it.vy) * CFG.BOUNCE;
+        it.vx *= 0.72;
+        it.vrot *= 0.7;
+        if (it.fresh) { it.fresh = false; sfx("splat"); }
+      } else {
+        it.vy = 0; it.vx = 0; it.vrot = 0; it.rest = true; it.life = 0;
+        it.rot = 0;
+        if (it.fresh) { it.fresh = false; sfx("splat"); }
+      }
+    }
+    // 吃掉判定（含优惠券）
+    const dx = it.x - p.x, dy = it.y - p.y;
+    if (dx * dx + dy * dy <= (it.r + p.r) * (it.r + p.r)) { eat(i); }
+  }
+
+  /* --- 粒子 --- */
+  for (let i = S.parts.length - 1; i >= 0; i--) {
+    const q = S.parts[i];
+    q.life += dt;
+    if (q.life >= q.max) { S.parts.splice(i, 1); continue; }
+    q.vy += q.grav * dt;
+    q.x += q.vx * dt; q.y += q.vy * dt;
+    q.rot += q.spin * dt;
+    q.vx *= (1 - 1.6 * dt);
+  }
+
+  /* --- 飘字 --- */
+  for (let i = S.texts.length - 1; i >= 0; i--) {
+    const t = S.texts[i];
+    t.life += dt;
+    t.y -= 42 * dt;
+    if (t.life >= t.max) S.texts.splice(i, 1);
+  }
+
+  S.shake = Math.max(0, S.shake - dt * 26);
+  S.flash = Math.max(0, S.flash - dt * 2.6);
+}
+
+function endGame(reason) {
+  if (!S || S.over) return;
+  S.over = true;
+  S.endReason = reason || "stuffed";   // stuffed=吃撑了 / quit=主动收工
+  sfx("stuffed");
+  burst(S.player.x, S.player.y, "#ffd24d", 40, { sp: 260, life: 0.9, rainbow: true, size: 5, lift: 120 });
+  renderEnd();
+  show("ovEnd");
+}
+
+/* ------------------------------- 渲染 -------------------------------- */
+
+let cv = null, cx = null, DPR = 1;
+const sprites = {};
+let spritesReady = false;
+
+function loadSprites() {
+  let n = 0, done = 0;
+  for (const k in SPRITES) {
+    const url = SPRITES[k];
+    if (!url) continue;
+    n++;
+    const img = { complete: false, w: 0, h: 0, el: null };
+    sprites[k] = img;
+    if (typeof Image === "undefined") { done++; continue; }
+    const el = new Image();
+    el.onload = () => { img.complete = true; img.w = el.naturalWidth || el.width; img.h = el.naturalHeight || el.height; done++; if (done >= n) spritesReady = true; };
+    el.onerror = () => { done++; };
+    el.src = url;
+    img.el = el;
+  }
+  if (n === 0) spritesReady = false;
+}
+
+function initCanvas() {
+  cv = $("cv");
+  if (!cv || !cv.getContext) return false;
+  cx = cv.getContext("2d");
+  loadSprites();
+  resize();
+  return true;
+}
+
+function resize() {
+  if (!cv) return;
+  DPR = Math.min(2, (typeof window !== "undefined" && window.devicePixelRatio) || 1);
+  const w = Math.max(320, (cv.clientWidth || (typeof window !== "undefined" && window.innerWidth) || 360));
+  const h = Math.max(420, (cv.clientHeight || (typeof window !== "undefined" && window.innerHeight) || 640));
+  cv.width = Math.round(w * DPR);
+  cv.height = Math.round(h * DPR);
+  if (S) { S.w = w; S.h = h; S.player.x = clamp(S.player.x, S.player.r, w - S.player.r); }
+}
+
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.lineTo(x + w - r, y); g.arcTo(x + w, y, x + w, y + r, r);
+  g.lineTo(x + w, y + h - r); g.arcTo(x + w, y + h, x + w - r, y + h, r);
+  g.lineTo(x + r, y + h); g.arcTo(x, y + h, x, y + h - r, r);
+  g.lineTo(x, y + r); g.arcTo(x, y, x + r, y, r);
+  g.closePath();
+}
+
+function drawFood(g, it) {
+  const spr = sprites[slugOf(it.f)];
+  g.save();
+  g.translate(it.x, it.y);
+  g.rotate(it.rot);
+  if (it.coupon) {
+    // 优惠券：金色纸片 + 虚线裁切边
+    const w = it.r * 1.9, h = it.r * 1.25;
+    g.fillStyle = "#ffd24d";
+    roundRect(g, -w / 2, -h / 2, w, h, 5); g.fill();
+    g.strokeStyle = "rgba(120,70,0,.55)"; g.lineWidth = 1.5;
+    g.setLineDash([4, 3]);
+    roundRect(g, -w / 2 + 3, -h / 2 + 3, w - 6, h - 6, 4); g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = "#7a4a00";
+    g.font = "bold " + Math.round(it.r * 0.95) + "px system-ui,sans-serif";
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText("券", 0, 0);
+  } else if (spr && spr.complete && spr.el) {
+    // 绘制系数 2.8 与素材 FILL=0.72（prepare_sprites.py）配套：
+    // 视觉半径 = 0.72 × 2.8 / 2 ≈ 1.008 × 碰撞半径 —— "看起来碰到就吃到"
+    const d = it.r * 2.8;
+    g.drawImage(spr.el, -d / 2, -d / 2, d, d);
+    if (!it.fresh) { g.globalAlpha = 0.22; g.fillStyle = "#12101a"; roundRect(g, -d / 2, -d / 2, d, d, 6); g.fill(); g.globalAlpha = 1; }
+  } else {
+    drawFoodFallback(g, it);
+  }
+  if (!it.fresh && !it.coupon) {
+    // 地上的那件：压一道阴影，读作"落灰了"
+    g.globalAlpha = 0.3; g.fillStyle = "#0b0810";
+    g.beginPath(); g.ellipse(0, it.r * 0.92, it.r * 0.85, it.r * 0.26, 0, 0, TAU); g.fill();
+    g.globalAlpha = 1;
+  }
+  g.restore();
+}
+
+/** 没有立绘时的降级画法：按品类给一个能认出来的几何形体。 */
+function drawFoodFallback(g, it) {
+  const c = catColor(it.f.c), r = it.r;
+  g.lineWidth = 2; g.strokeStyle = "rgba(30,16,10,.55)";
+  if (it.f.c === "饮品" || it.f.c === "饮料") {
+    g.fillStyle = c; roundRect(g, -r * 0.62, -r * 0.95, r * 1.24, r * 1.9, 4); g.fill(); g.stroke();
+    g.fillStyle = "rgba(255,255,255,.55)";
+    roundRect(g, -r * 0.5, -r * 0.8, r, r * 0.34, 3); g.fill();
+  } else if (it.f.c === "甜品" || it.f.c === "咖啡") {
+    g.fillStyle = c;
+    g.beginPath(); g.moveTo(-r * 0.7, -r * 0.2); g.lineTo(r * 0.7, -r * 0.2);
+    g.lineTo(r * 0.42, r); g.lineTo(-r * 0.42, r); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = "#fff6e8";
+    g.beginPath(); g.arc(0, -r * 0.28, r * 0.66, Math.PI, TAU); g.fill(); g.stroke();
+  } else {
+    g.fillStyle = c;
+    roundRect(g, -r * 0.95, -r * 0.5, r * 1.9, r, r * 0.34); g.fill(); g.stroke();
+    g.fillStyle = "#fff3d0";
+    roundRect(g, -r * 0.95, -r * 0.5, r * 1.9, r * 0.3, r * 0.2); g.fill();
+  }
+}
+
+/** 薯条侠：番茄盒身体 + 薯条冠 + 会看食物也会张嘴的脸。 */
+function drawPlayer(g) {
+  const p = S.player;
+  const sick = S.time < S.sickUntil;
+  const bob = Math.sin(p.bob) * 2.2;
+  const sq = 1 + p.squash * 0.16, sqv = 1 - p.squash * 0.12;
+  g.save();
+  g.translate(p.x, p.y + bob);
+
+  // 影子
+  g.globalAlpha = 0.32; g.fillStyle = "#05030a";
+  g.beginPath(); g.ellipse(0, p.r * 0.98 - bob, p.r * 0.98, p.r * 0.3, 0, 0, TAU); g.fill();
+  g.globalAlpha = 1;
+
+  g.scale(p.face * sq, sqv);
+
+  // 薯条冠
+  const fryN = 5;
+  for (let i = 0; i < fryN; i++) {
+    const t = (i - (fryN - 1) / 2) / ((fryN - 1) / 2);
+    g.save();
+    g.translate(t * p.r * 0.62, -p.r * 0.52);
+    g.rotate(t * 0.2 + Math.sin(p.bob * 1.3 + i) * 0.07);
+    g.fillStyle = i % 2 ? "#ffcf4a" : "#ffc02e";
+    roundRect(g, -3.4, -p.r * 0.62, 6.8, p.r * 0.72, 3); g.fill();
+    g.strokeStyle = "rgba(120,70,0,.4)"; g.lineWidth = 1.2; g.stroke();
+    g.restore();
+  }
+
+  // 盒子身体
+  const bw = p.r * 1.5, bh = p.r * 1.55;
+  const bg = g.createLinearGradient(0, -bh * 0.2, 0, bh * 0.8);
+  bg.addColorStop(0, sick ? "#8e9a6f" : "#ff4b3a");
+  bg.addColorStop(1, sick ? "#69754f" : "#c92a1c");
+  g.fillStyle = bg;
+  roundRect(g, -bw / 2, -bh * 0.28, bw, bh, 6); g.fill();
+  g.strokeStyle = "rgba(30,10,6,.5)"; g.lineWidth = 2; g.stroke();
+
+  // 黄腰带
+  g.fillStyle = sick ? "#b6bd93" : "#ffd94a";
+  roundRect(g, -bw / 2, bh * 0.12, bw, bh * 0.3, 3); g.fill();
+
+  // 脸
+  const ey = -bh * 0.02;
+  g.fillStyle = "#fff";
+  g.beginPath(); g.arc(-5.4, ey, 4.5, 0, TAU); g.arc(5.4, ey, 4.5, 0, TAU); g.fill();
+  // 眼睛追最近的食物
+  let tgt = null, best = 1e9;
+  for (const it of S.items) {
+    if (it.rest) continue;
+    const d = (it.x - p.x) * (it.x - p.x) + (it.y - p.y) * (it.y - p.y);
+    if (d < best) { best = d; tgt = it; }
+  }
+  let lgx = 0, lgy = 0;
+  if (tgt) {
+    const a = Math.atan2(tgt.y - p.y, tgt.x - p.x);
+    lgx = Math.cos(a) * 1.7; lgy = Math.sin(a) * 1.7;
+  }
+  g.fillStyle = "#2a1a12";
+  g.beginPath(); g.arc(-5.4 + lgx, ey + lgy, 2.2, 0, TAU); g.arc(5.4 + lgx, ey + lgy, 2.2, 0, TAU); g.fill();
+
+  // 嘴：吃的时候张开
+  const mv = 3 + p.mouth * 7;
+  g.fillStyle = "#3a1410";
+  g.beginPath(); g.ellipse(0, ey + 9, 5.2, mv * 0.5, 0, 0, TAU); g.fill();
+  if (p.mouth > 0.15) {
+    g.fillStyle = "#ff8f8f";
+    g.beginPath(); g.ellipse(0, ey + 9 + mv * 0.22, 3.4, mv * 0.24, 0, 0, TAU); g.fill();
+  }
+
+  // 两只小手
+  g.fillStyle = sick ? "#8e9a6f" : "#ff6a4d";
+  const swing = Math.sin(p.bob) * 3;
+  g.beginPath(); g.arc(-bw * 0.56, bh * 0.3 - swing, 3.6, 0, TAU); g.fill();
+  g.beginPath(); g.arc(bw * 0.56, bh * 0.3 + swing, 3.6, 0, TAU); g.fill();
+
+  g.restore();
+}
+
+function drawHopper(g) {
+  const h = S.hopper;
+  // 导轨
+  g.save();
+  g.globalAlpha = 0.28;
+  g.strokeStyle = "#c9b6e0"; g.lineWidth = 2; g.setLineDash([9, 9]);
+  g.beginPath();
+  g.moveTo(S.w * 0.5 - S.w * CFG.HOPPER_SWING, h.y);
+  g.lineTo(S.w * 0.5 + S.w * CFG.HOPPER_SWING, h.y);
+  g.stroke();
+  g.setLineDash([]);
+  g.restore();
+
+  g.save();
+  g.translate(h.x, h.y);
+  g.rotate(h.tilt);
+
+  const w = Math.min(150, S.w * 0.34), hgt = 26;
+  const mg = g.createLinearGradient(0, -hgt / 2, 0, hgt / 2);
+  mg.addColorStop(0, "#e9e3f2");
+  mg.addColorStop(0.42, "#a99cbb");
+  mg.addColorStop(0.62, "#6f6480");
+  mg.addColorStop(1, "#4b4159");
+  g.fillStyle = mg;
+  roundRect(g, -w / 2, -hgt / 2, w, hgt, 8); g.fill();
+  g.strokeStyle = "rgba(20,12,28,.65)"; g.lineWidth = 2; g.stroke();
+
+  // 铆钉
+  g.fillStyle = "rgba(255,255,255,.5)";
+  for (let i = -2; i <= 2; i++) { g.beginPath(); g.arc(i * w * 0.18, -hgt * 0.26, 1.7, 0, TAU); g.fill(); }
+
+  // 出料口（朝向下方，摆到哪边就朝哪边倾）
+  g.beginPath(); g.ellipse(0, hgt * 0.42, w * 0.2, 6.5, 0, 0, TAU);
+  g.fillStyle = "#241a2e"; g.fill();
+  g.strokeStyle = h.fire > 0 ? "#ffd24d" : "rgba(255,255,255,.25)";
+  g.lineWidth = h.fire > 0 ? 3 : 2; g.stroke();
+  g.restore();
+
+  // 出料火花
+  if (h.fire > 0) {
+    const m = hopperMouth(h);
+    burst(m.x, m.y, "#ffd24d", 3, { sp: 90, life: 0.3, size: 2.6, grav: 300 });
+  }
+}
+
+function drawBackdrop(g) {
+  // 顶灯暖光
+  const lg = g.createRadialGradient(S.w * 0.5, -S.h * 0.12, 10, S.w * 0.5, -S.h * 0.12, S.h * 0.85);
+  lg.addColorStop(0, "rgba(255,90,60,.32)");
+  lg.addColorStop(0.45, "rgba(120,40,90,.14)");
+  lg.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = lg;
+  g.fillRect(0, 0, S.w, S.h);
+
+  // 地面：台面 + 缝
+  const gy = S.h - CFG.GROUND_H;
+  const tg = g.createLinearGradient(0, gy, 0, S.h);
+  tg.addColorStop(0, "#3a2b4a"); tg.addColorStop(1, "#1d1526");
+  g.fillStyle = tg;
+  g.fillRect(0, gy, S.w, CFG.GROUND_H);
+  g.strokeStyle = "rgba(255,255,255,.12)"; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(0, gy + 0.5); g.lineTo(S.w, gy + 0.5); g.stroke();
+  g.globalAlpha = 0.18; g.strokeStyle = "#fff";
+  for (let x = 0; x < S.w; x += 46) {
+    g.beginPath(); g.moveTo(x, gy); g.lineTo(x - 6, S.h); g.stroke();
+  }
+  g.globalAlpha = 1;
+}
+
+function render() {
+  if (!cx || !S) return;
+  const g = cx;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.clearRect(0, 0, S.w, S.h);
+
+  // 屏幕震动
+  if (S.shake > 0.05) {
+    g.translate((rng() - 0.5) * S.shake, (rng() - 0.5) * S.shake);
+  }
+
+  drawBackdrop(g);
+  drawHopper(g);
+
+  for (const it of S.items) drawFood(g, it);
+  drawPlayer(g);
+
+  // 粒子
+  for (const q of S.parts) {
+    const a = 1 - q.life / q.max;
+    g.globalAlpha = Math.max(0, a);
+    g.fillStyle = q.color;
+    g.save();
+    g.translate(q.x, q.y); g.rotate(q.rot);
+    if (q.kind === "star") {
+      g.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const r1 = q.size, r2 = q.size * 0.45;
+        g.lineTo(Math.cos((i * 4 * Math.PI) / 5) * r1, Math.sin((i * 4 * Math.PI) / 5) * r1);
+        g.lineTo(Math.cos((i * 4 * Math.PI) / 5 + Math.PI / 5) * r2, Math.sin((i * 4 * Math.PI) / 5 + Math.PI / 5) * r2);
+      }
+      g.closePath(); g.fill();
+    } else {
+      roundRect(g, -q.size / 2, -q.size / 2, q.size, q.size, 1.5); g.fill();
+    }
+    g.restore();
+  }
+  g.globalAlpha = 1;
+
+  // 连击冲击波
+  if (S.time < S.ringUntil) {
+    const t = 1 - (S.ringUntil - S.time) / 0.45;
+    g.save();
+    g.globalAlpha = (1 - t) * 0.75;
+    g.lineWidth = 6;
+    for (let i = 0; i < 3; i++) {
+      g.strokeStyle = hsl(i * 120 + t * 200, 90, 62);
+      g.beginPath();
+      g.arc(S.player.x, S.player.y, 20 + t * (110 + i * 34), 0, TAU);
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  // 飘字
+  g.textAlign = "center"; g.textBaseline = "middle";
+  for (const t of S.texts) {
+    const a = 1 - t.life / t.max;
+    g.globalAlpha = Math.max(0, a);
+    g.font = "bold 14px system-ui,-apple-system,sans-serif";
+    g.lineWidth = 3; g.strokeStyle = "rgba(0,0,0,.7)";
+    g.strokeText(t.txt, t.x, t.y);
+    g.fillStyle = t.color;
+    g.fillText(t.txt, t.x, t.y);
+  }
+  g.globalAlpha = 1;
+
+  // 「腻」的暗角
+  if (S.time < S.sickUntil) {
+    g.save();
+    g.globalAlpha = 0.2 * Math.min(1, (S.sickUntil - S.time) / CFG.SICK_TIME);
+    g.fillStyle = "#7d8a5f";
+    g.fillRect(0, 0, S.w, S.h);
+    g.restore();
+  }
+
+  // 双倍分：屏幕边缘金框
+  if (S.time < S.doubleUntil) {
+    g.save();
+    g.globalAlpha = 0.35 + 0.25 * Math.sin(S.time * 12);
+    g.strokeStyle = "#ffd24d"; g.lineWidth = 5;
+    g.strokeRect(3, 3, S.w - 6, S.h - 6);
+    g.restore();
+  }
+}
+
+/* -------------------------------- UI 层 ------------------------------- */
+
+function show(id) { const el = $(id); if (el) el.classList.add("on"); }
+function hide(id) { const el = $(id); if (el) el.classList.remove("on"); }
+
+function fmtTime(t) {
+  const m = Math.floor(t / 60), s = Math.floor(t % 60);
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+function syncHud() {
+  const e = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  e("score", S.score);
+  e("eaten", S.eaten);
+  e("kcal", S.kcal);
+  const cb = $("combo");
+  if (cb) {
+    const dv = S.time < S.doubleUntil ? " · 双倍!" : "";
+    cb.textContent = S.combo > 1 ? ("连击 x" + S.combo + "  倍率 " + comboMult(S.combo).toFixed(1) + dv) : dv ? "双倍!" : "";
+  }
+  const pct = clamp((S.fullness / CFG.FULLNESS_MAX) * 100, 0, 100);
+  const gf = $("gutFill");
+  if (gf) {
+    gf.style.width = pct.toFixed(1) + "%";
+    gf.style.background = pct > 82
+      ? "linear-gradient(90deg,#ff9f1c,#ff3b30)"
+      : pct > 55 ? "linear-gradient(90deg,#ffd93d,#ff8a3d)"
+        : "linear-gradient(90deg,#7ee787,#ffd93d)";
+  }
+  const gt = $("gutTxt");
+  if (gt) gt.textContent = pct.toFixed(0) + "%" + (pct > 82 ? " · 快撑了" : "");
+}
+
+function statsHtml() {
+  const rank = rankOf(S.score);
+  const rows = [
+    ["段位", rank[1]],
+    ["得分", S.score],
+    ["吃下", S.eaten + " 件"],
+    ["总热量", S.kcal + " kcal"],
+    ["如果真点", "¥" + S.priceYuan],
+    ["最长连击", "x" + S.bestCombo],
+    ["腻了", S.sickTimes + " 次"],
+    ["撑在", fmtTime(S.time)]
+  ];
+  return rows.map((r) => "<div><span>" + r[0] + "</span><b>" + r[1] + "</b></div>").join("");
+}
+
+/** 用真实数据给一句锐评——这是"这局到底吃了什么"最直观的一行。 */
+function verdict() {
+  const total = S.eaten || 1;
+  const staple = (S.catCount["主食"] || 0) / total;
+  const sweet = ((S.catCount["甜品"] || 0) + (S.catCount["饮品"] || 0) + (S.catCount["饮料"] || 0)) / total;
+  if (S.kcal >= 2200) return "这一顿的热量够你走 4 个小时——机器倒得比你消化得快。";
+  if (S.sickTimes >= 4) return "你反复栽在同一个品类上，胃不是打卡机。";
+  if (staple >= 0.6) return "清一色主食，碳水管够，青菜没有。";
+  if (sweet >= 0.5) return "你这是把出餐口当奶茶店在喝。";
+  if (S.bestCombo >= 18) return "连击打得比出餐口还稳，节奏感很强。";
+  if (S.eaten <= 4) return "才吃这么点就撑了？下一局先挑小的吃。";
+  return "节奏还行，再多换换品类分数会更高。";
+}
+
+function renderEnd() {
+  const rank = rankOf(S.score);
+  const t = $("endTitle");
+  if (t) t.textContent = (S.endReason === "quit" ? "收工了 · " : "吃撑了 · ") + rank[1];
+  const sub = $("endSub");
+  if (sub) sub.textContent = rank[2];
+  const es = $("endStats");
+  if (es) es.innerHTML = statsHtml();
+  const note = $("endNote");
+  if (note) note.textContent = "锐评：" + verdict();
+  drawReport();
+}
+
+function renderPause() {
+  const ps = $("pauseStats");
+  if (ps) ps.innerHTML = statsHtml();
+}
+
+/* ------------------------------ 战报图 -------------------------------- */
+
+let reportURL = "";
+
+function drawReport() {
+  if (typeof document === "undefined" || !document.createElement) return;
+  const c = document.createElement("canvas");
+  c.width = 720; c.height = 1080;
+  const g = c.getContext("2d");
+  if (!g) return;
+
+  const bg = g.createLinearGradient(0, 0, 0, 1080);
+  bg.addColorStop(0, "#1b1024"); bg.addColorStop(1, "#0a0710");
+  g.fillStyle = bg; g.fillRect(0, 0, 720, 1080);
+  const lg = g.createRadialGradient(360, 60, 10, 360, 60, 620);
+  lg.addColorStop(0, "rgba(255,90,60,.34)"); lg.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = lg; g.fillRect(0, 0, 720, 1080);
+
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillStyle = "#ffd24d"; g.font = "bold 34px system-ui,sans-serif";
+  g.fillText("麦门开饭 · 出餐口大作战", 360, 96);
+
+  // 段位
+  g.fillStyle = "#fff";
+  g.font = "bold 74px system-ui,sans-serif";
+  g.fillText(rankOf(S.score)[1], 360, 208);
+  g.fillStyle = "#a99bbd"; g.font = "18px system-ui,sans-serif";
+  g.fillText("得分 " + S.score + "  ·  撑在 " + fmtTime(S.time), 360, 262);
+
+  // 三块大字
+  const blocks = [
+    ["吃下", S.eaten + " 件", "#ffd24d"],
+    ["总热量", S.kcal + " kcal", "#ff8a3d"],
+    ["如果真点", "¥" + S.priceYuan, "#7ee787"]
+  ];
+  blocks.forEach((b, i) => {
+    const x = 120 + i * 240;
+    g.fillStyle = "rgba(255,255,255,.05)";
+    roundRect(g, x - 104, 316, 208, 106, 14); g.fill();
+    g.fillStyle = "#a99bbd"; g.font = "16px system-ui,sans-serif";
+    g.fillText(b[0], x, 348);
+    g.fillStyle = b[2]; g.font = "bold 30px system-ui,sans-serif";
+    g.fillText(b[1], x, 392);
+  });
+
+  // 品类分布（用真实品类计数）
+  const cats = Object.keys(S.catCount).sort((a, b) => S.catCount[b] - S.catCount[a]).slice(0, 6);
+  const max = Math.max(1, ...cats.map((k) => S.catCount[k]));
+  g.textAlign = "left";
+  g.fillStyle = "#a99bbd"; g.font = "16px system-ui,sans-serif";
+  g.fillText("吃了些什么", 60, 472);
+  cats.forEach((k, i) => {
+    const y = 506 + i * 46;
+    g.fillStyle = "#efe7ff"; g.font = "bold 18px system-ui,sans-serif";
+    g.fillText(k, 60, y);
+    const w = (S.catCount[k] / max) * 340;
+    g.fillStyle = "rgba(255,255,255,.08)";
+    roundRect(g, 180, y - 10, 340, 20, 10); g.fill();
+    g.fillStyle = catColor(k);
+    roundRect(g, 180, y - 10, Math.max(20, w), 20, 10); g.fill();
+    g.fillStyle = "#cbbfe0"; g.font = "16px system-ui,sans-serif";
+    g.fillText("x" + S.catCount[k], 540, y);
+  });
+
+  g.textAlign = "center";
+  g.fillStyle = "#efe7ff"; g.font = "19px system-ui,sans-serif";
+  const v = verdict();
+  const lines = v.length > 22 ? [v.slice(0, 22), v.slice(22)] : [v];
+  lines.forEach((ln, i) => g.fillText(ln, 360, 830 + i * 30));
+
+  g.fillStyle = "#6f6480"; g.font = "15px system-ui,sans-serif";
+  g.fillText("数据来自麦当劳官方 MCP · 热量与价格均为真实值", 360, 950);
+  g.fillText("最长连击 x" + S.bestCombo + " · 腻了 " + S.sickTimes + " 次", 360, 978);
+  g.fillStyle = "#4b4159"; g.font = "14px system-ui,sans-serif";
+  g.fillText("麦门开饭 McChow · 麦当劳程序员创意开发大赛参赛作品", 360, 1036);
+
+  const img = $("reportImg");
+  try {
+    reportURL = c.toDataURL("image/png");
+    if (img) img.src = reportURL;
+  } catch (e) { reportURL = ""; }
+}
+
+function saveReport() {
+  if (typeof document === "undefined") return;
+  if (!reportURL) drawReport();
+  if (!reportURL) return;
+  const a = document.createElement("a");
+  a.href = reportURL;
+  a.download = "麦门开饭-战报.png";
+  if (a.click) a.click();
+}
+
+/* -------------------------------- 输入 -------------------------------- */
+
+const keys = { left: false, right: false, up: false, down: false };
+const pointer = { active: false, x: 0, y: 0 };
+
+const KEYMAP = {
+  ArrowLeft: "left", a: "left", A: "left",
+  ArrowRight: "right", d: "right", D: "right",
+  ArrowUp: "up", w: "up", W: "up",
+  ArrowDown: "down", s: "down", S: "down"
+};
+
+function onKey(e, down) {
+  const k = KEYMAP[e.key];
+  if (k) { keys[k] = down; if (e.preventDefault) e.preventDefault(); return; }
+  if (!down) return;
+  if (e.key === "p" || e.key === "P" || e.key === "Escape") togglePause();
+  else if (e.key === "m" || e.key === "M") { S.muted = !S.muted; toast(S.muted ? "已静音" : "声音开"); }
+  else if (e.key === "r" || e.key === "R") beginGame(S.seed);
+  else if (e.key === " " && !S.started) beginGame(S.seed);
+}
+
+function bindInput() {
+  if (typeof window === "undefined" || !window.addEventListener) return;
+  window.addEventListener("keydown", (e) => onKey(e, true));
+  window.addEventListener("keyup", (e) => onKey(e, false));
+
+  const cvEl = $("cv") || window;
+  const pos = (e) => {
+    const el = $("cv");
+    const r = (el && el.getBoundingClientRect) ? el.getBoundingClientRect() : { left: 0, top: 0 };
+    const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+    if (!t || t.clientX == null) return;
+    pointer.x = t.clientX - r.left;
+    pointer.y = t.clientY - r.top;
+  };
+  const down = (e) => { pointer.active = true; pos(e); };
+  const move = (e) => { pos(e); };
+  const up = () => { pointer.active = false; };
+
+  const bind = (el, type, fn, opt) => { if (el && el.addEventListener) el.addEventListener(type, fn, opt); };
+  // 微信内置浏览器（X5）等旧 WebView 没有 PointerEvent ⇒ 必须留 touch 回退，否则手机上动不了
+  if (window.PointerEvent) {
+    bind(cvEl, "pointerdown", down); bind(cvEl, "pointermove", move);
+    bind(window, "pointerup", up); bind(window, "pointercancel", up);
+  } else {
+    bind(cvEl, "touchstart", down, { passive: true });
+    bind(cvEl, "touchmove", move, { passive: false });
+    bind(window, "touchend", up); bind(window, "touchcancel", up);
+    bind(cvEl, "mousedown", down); bind(cvEl, "mousemove", move); bind(window, "mouseup", up);
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && S && S.started && !S.over) togglePause(true);
+  });
+  window.addEventListener("resize", () => { resize(); });
+  window.addEventListener("orientationchange", () => setTimeout(resize, 120));
+}
+
+/* ------------------------------ 主循环 -------------------------------- */
+
+function loop() {
+  if (typeof requestAnimationFrame === "undefined") return;
+  let last = 0;
+  const step = (t) => {
+    if (!last) last = t;
+    let dt = (t - last) / 1000;
+    last = t;
+    if (dt > 0.25) dt = 0.25;
+    update(dt);
+    render();
+    syncHud();
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function togglePause(force) {
+  if (!S || S.over || !S.started) return;
+  S.paused = force === true ? true : !S.paused;
+  if (S.paused) { renderPause(); show("ovPause"); } else hide("ovPause");
+}
+
+function startGame(seed) {
+  const s = (seed == null ? newSeed() : seed) >>> 0;
+  rng = mulberry32(s);
+  S = emptyState(s);
+  if (cv) { S.w = cv.clientWidth || S.w; S.h = cv.clientHeight || S.h; }
+  S.player.x = S.w / 2;
+  S.player.y = S.h * 0.72;
+  S.hopper.x = S.w / 2;
+  S.spawnT = 0.8;
+  S.started = false;
+  hide("ovEnd"); hide("ovPause"); hide("ovStart");
+  syncHud();
+  if (cx) { const g = cx; g.setTransform(DPR, 0, 0, DPR, 0, 0); drawStaticStart(); }
+}
+
+/** 点「开饭」/ 空格 / R / 再来一局：重置并立即开跑（世界开始推进）。
+    与 startGame 的区别 —— startGame 只"就位待命"（世界冻结、等遮罩点击）。 */
+function beginGame(seed) {
+  startGame(seed);
+  if (S) S.started = true;
+}
+
+/** 开始前的静帧：让首屏就有东西看，而不是一片黑。 */
+function drawStaticStart() {
+  if (!cx || !S) return;
+  const g = cx;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.clearRect(0, 0, S.w, S.h);
+  drawBackdrop(g);
+  drawHopper(g);
+  drawPlayer(g);
+}
+
+function newSeed() { return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0; }
+
+/* ------------------------------- 启动 -------------------------------- */
+
+function boot() {
+  if (!initCanvas()) return;
+  const seed = newSeed();
+  startGame(seed);
+  const sn = $("seedNote");
+  if (sn) sn.textContent = "本局种子：" + seed + "（同一颗种子必然复现同一局）";
+  const b = $("btnStart");
+  if (b) b.onclick = () => beginGame(S.seed);
+  const bs = $("btnSeed");
+  if (bs) bs.onclick = () => {
+    const s = newSeed();
+    S = emptyState(s);
+    S.w = cv ? (cv.clientWidth || S.w) : S.w;
+    S.h = cv ? (cv.clientHeight || S.h) : S.h;
+    S.player.x = S.w / 2; S.player.y = S.h * 0.72; S.hopper.x = S.w / 2;
+    if (sn) sn.textContent = "本局种子：" + s + "（同一颗种子必然复现同一局）";
+    drawStaticStart();
+  };
+  const br = $("btnResume");
+  if (br) br.onclick = () => togglePause(false);
+  const bq = $("btnQuit");
+  if (bq) bq.onclick = () => { hide("ovPause"); S.paused = false; endGame("quit"); };
+  const ba = $("btnAgain");
+  if (ba) ba.onclick = () => beginGame(newSeed());
+  const bsave = $("btnSave");
+  if (bsave) bsave.onclick = () => saveReport();
+
+  const hintEl = $("hint");
+  // ⚠ 别用 navigator.maxTouchPoints 判"是否触屏"：Windows 上的浏览器会报一个正数
+  //   （QQ 浏览器实测 10），把纯键鼠桌面误判成触屏。pointer:coarse 看主指针、ontouchstart 看触摸能力，才可信。
+  const coarse = (typeof window !== "undefined") && (
+    (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) ||
+    ("ontouchstart" in window));
+  if (hintEl) hintEl.textContent = coarse ? "按住屏幕拖动去吃 · 别吃撑" : "WASD / 方向键（或拖动屏幕）· 别吃撑";
+
+  bindInput();
+  loop();
+  // ⚠ 遮罩默认 display:none，不显式打开就永远进不去游戏（手机上没有键盘兜底 ⇒ 直接卡死）
+  show("ovStart");
+}
+
+/* ------------------------------ 对外接口 ------------------------------ */
+
+const API = {
+  VERSION, CFG, FOODS, SPRITES, CAT_COLOR, RANKS,
+  keys, pointer,
+  reset: (seed, opt) => { if (opt && opt.autoStart) beginGame(seed); else startGame(seed); return S; },
+  start: () => { S.started = true; },
+  update: (dt) => update(dt),
+  render: () => render(),
+  state: () => S,
+  endGame: (r) => endGame(r),
+  togglePause: (f) => togglePause(f),
+  // 测试钩子：把形状/数值问题从"跑一局慢慢看"变成"一步到位"
+  spawnAt: (nameOrFood, x, y) => {
+    if (!S) return null;
+    const f = typeof nameOrFood === "string"
+      ? (FOODS.find((v) => v.n === nameOrFood) || { n: nameOrFood, p: 10, k: 300, c: "小食", s: "fries" })
+      : nameOrFood;
+    return spawnFood(f, x, y, 0, 0);
+  },
+  spawnCouponAt: (x, y) => { if (!S) return null; return spawnCoupon(x, y); },
+  moveTo: (x, y) => { S.player.x = x; S.player.y = y; S.player.vx = 0; S.player.vy = 0; },
+  itemRadius: (kcal) => radiusOf(kcal),
+  fullnessOf, comboMult, scoreOf, rankOf, slugOf, catColor,
+  reportDataURL: () => { drawReport(); return reportURL; },
+  verdict: () => verdict()
+};
+
+if (typeof globalThis !== "undefined") globalThis.McChow = API;
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+}
+
+})();
+</script>
+</body>
+</html>
