@@ -1,0 +1,6 @@
+# 统一换行符，避免 Windows 检出时把 LF 变成 CRLF，
+# 保证 CONTEST_DECLARATION.md 与官方原文逐字节一致。
+* text=auto eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.py text eol=lf
