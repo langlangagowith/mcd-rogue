@@ -26,3 +26,6 @@ data/private/
 
 # 素材目检对照图（调试产物，不随构建分发）
 assets/_contact.png
+
+# 本机目检脚本与截图（一次性探针，不入库）
+_probe/
