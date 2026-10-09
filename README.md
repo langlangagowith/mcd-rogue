@@ -34,10 +34,15 @@
 
 ## 30 秒上手
 
-> 🎮 **就想直接玩？** 这里有两种玩法。除了下面这套「三回合点餐」，
-> 还有一个**幸存者类小游戏**：[**麦门幸存者 McSurvivor**](./docs/neon.html)
-> —— 自动开火 + 走位 + 三选一构筑，敌人的血量与速度同样由真实营养数据派生。
-> 在线玩：**https://langlangagowith.github.io/mcd-rogue/neon.html**
+> 🎮 **就想直接玩？** 除了下面这套「三回合点餐」，仓库里还有两个单文件小游戏：
+> - [**麦门幸存者 McSurvivor**](./docs/neon.html) —— 幸存者类：自动开火 + 走位 + 三选一构筑，
+>   敌人的血量与速度由真实营养数据派生；
+> - [**出餐口大作战 McChow**](./docs/arcade.html) —— 接住出料口倒下来的真实菜单（吃撑结束），
+>   12 张手绘风餐品立绘，热量越高体型越大。
+>
+> 在线玩：**https://langlangagowith.github.io/mcd-rogue/** ·
+> [/neon.html](https://langlangagowith.github.io/mcd-rogue/neon.html) ·
+> [/arcade.html](https://langlangagowith.github.io/mcd-rogue/arcade.html)
 
 ### 方式一：直接玩（无需任何配置）
 

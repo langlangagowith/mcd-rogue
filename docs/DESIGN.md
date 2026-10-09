@@ -73,6 +73,18 @@ McRogue 把痛点重新表述为**一日三餐的资源分配问题**：
 设计上刻意让网页版**内置真实菜单快照**（`data/snapshot.json`），
 使离线状态下的体验仍然是"真的麦当劳菜单"，而不是编造的数字。
 
+### 附赠：两个即开即玩的小游戏
+
+除主玩法外，仓库里还有两个**单文件、离线可玩**的小游戏，都用真实营养数据当数值引擎：
+
+| 小游戏 | 文件 | 一句话 |
+|---|---|---|
+| 麦门幸存者 McSurvivor | `docs/neon.html` | 幸存者类：自动开火 + 走位 + 三选一构筑；敌人血量/速度由 kcal 派生 |
+| 出餐口大作战 McChow | `docs/arcade.html` | 接住出料口倒下来的真实菜单，吃撑结束；12 张手绘风餐品立绘 |
+
+两者都有确定性构建管线（`scripts/build_*.py`）与无头冒烟测试（`scripts/smoke_*.mjs`）；
+出餐口大作战还有一条独立的素材管线（文生图 → 抠底归一化 → base64 内联，见 `scripts/prepare_sprites.py`）。
+
 ---
 
 ## 5. 战报（传播单元）
@@ -106,9 +118,13 @@ mcd-rogue/
 ├─ data/
 │   ├─ snapshot.json          # 公开菜单/营养/活动快照（从 MCP 导出，无个人数据）
 │   └─ cardpool.json          # 游戏卡池（菜单价格 × 官方营养，按名对齐）
+├─ assets/
+│   ├─ raw/                   # 12 张餐品立绘原图（AI 文生图，RGB 奶黄底）
+│   └─ sprites/               # 抠底归一化后的透明立绘（RGBA 256²，构建时 base64 内联）
 ├─ docs/
 │   ├─ index.html             # 构建产物：单文件可玩网页版（GitHub Pages 入口）
 │   ├─ neon.html              # 构建产物：麦门幸存者（幸存者类小游戏，单文件）
+│   ├─ arcade.html            # 构建产物：出餐口大作战（接料小游戏，单文件，含 12 张内联立绘）
 │   └─ DESIGN.md              # 本文件
 ├─ scripts/
 │   ├─ score.py               # 确定性结算引擎（纯函数，可单测）
@@ -117,11 +133,15 @@ mcd-rogue/
 │   ├─ build_cardpool.py      # 菜单 × 营养 → 游戏卡池
 │   ├─ build_web.py           # 注入数据 → docs/index.html
 │   ├─ build_neon.py          # 注入营养数据 → docs/neon.html
+│   ├─ build_arcade.py        # 注入营养数据 + 立绘（base64）→ docs/arcade.html（零第三方依赖）
+│   ├─ prepare_sprites.py     # 素材管线：raw → sprites（抠底/归一化/降采样；需 Pillow+numpy，一次性）
 │   ├─ smoke_web.mjs          # 网页版无头冒烟测试
-│   └─ smoke_neon.mjs         # 麦门幸存者无头冒烟测试
+│   ├─ smoke_neon.mjs         # 麦门幸存者无头冒烟测试
+│   └─ smoke_arcade.mjs       # 出餐口大作战无头冒烟测试
 └─ web/
     ├─ template.html          # 网页版模板（数据由 build_web.py 注入）
-    └─ neon-template.html     # 幸存者模板（营养数据由 build_neon.py 注入）
+    ├─ neon-template.html     # 幸存者模板（营养数据由 build_neon.py 注入）
+    └─ arcade-template.html   # 出餐口大作战模板（食物清单与立绘由 build_arcade.py 注入）
 ```
 
 > 关于必需文件的说明：官方 `README.md` 的表格与 `activityGuidelines.md` 列出的清单
