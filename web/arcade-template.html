@@ -63,9 +63,31 @@
   .note{color:var(--dim);font-size:11px;margin-top:8px;line-height:1.6}
   .kbd{display:inline-block;padding:1px 6px;border-radius:5px;background:#332545;
     border:1px solid #4a3560;font-size:11px}
+
+  /* 启动提示 & 错误可视——纯 CSS 动画，不依赖任何 JS：
+     #bootTip 在 HTML 头几 KB 到达时就开始渲染，弱网下用户不再对着"只有背景"干等；
+     9 秒后自动淡入一句"网络较慢"；#bootErr 把启动/运行期错误贴到屏幕底部，
+     任何"进去只有背景"的现场都能被一张截图定位。 */
+  #bootTip{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:12px;background:#0a0710;z-index:60;color:#aa9cbe;font-size:14px}
+  #bootTip .bt-ico{font-size:44px;animation:btPulse 1s ease-in-out infinite alternate}
+  #bootTip .bt-slow{opacity:0;animation:btSlow 1s 9s forwards;font-size:12px;color:#6f6480;
+    text-align:center;padding:0 24px;line-height:1.6}
+  @keyframes btPulse{from{transform:scale(1);opacity:.72}to{transform:scale(1.12);opacity:1}}
+  @keyframes btSlow{to{opacity:1}}
+  #bootErr{display:none;position:fixed;left:0;right:0;bottom:0;z-index:99;
+    background:rgba(122,14,14,.94);color:#fff;font-size:11px;line-height:1.55;
+    padding:8px 10px;white-space:pre-wrap;word-break:break-all}
+  #bootErr.on{display:block}
 </style>
 </head>
 <body>
+<div id="bootTip">
+  <div class="bt-ico">🍟</div>
+  <div>正在备餐…</div>
+  <div class="bt-slow">网络较慢，页面还在加载——请再等几秒，或刷新重试</div>
+</div>
+<div id="bootErr"></div>
 <canvas id="cv"></canvas>
 
 <div id="hud">
@@ -172,6 +194,21 @@ function mulberry32(a) {
 }
 
 const $ = (id) => (typeof document !== "undefined" ? document.getElementById(id) : null);
+
+/** 把错误贴到屏幕底部（截图即现场）：真机出问题时不再只有"一片背景"可看。 */
+function bootErr(msg) {
+  try {
+    const el = $("bootErr");
+    if (el) {
+      el.textContent = "出错了（请截图反馈）：" + String(msg).slice(0, 360);
+      el.classList.add("on");
+    }
+  } catch (_) { /* 连报错都失败就别再折腾了 */ }
+}
+if (typeof window !== "undefined" && window.addEventListener) {
+  window.addEventListener("error", (e) => bootErr((e.message || "?") + " @" + (e.lineno || "?")));
+  window.addEventListener("unhandledrejection", (e) => bootErr("Promise: " + ((e.reason && e.reason.message) || e.reason)));
+}
 
 /* ------------------------------ 品类配色 ------------------------------ */
 
@@ -1234,15 +1271,16 @@ function bindInput() {
 
 function loop() {
   if (typeof requestAnimationFrame === "undefined") return;
-  let last = 0;
+  let last = 0, errs = 0;
   const step = (t) => {
     if (!last) last = t;
     let dt = (t - last) / 1000;
     last = t;
     if (dt > 0.25) dt = 0.25;
-    update(dt);
-    render();
-    syncHud();
+    // 单帧异常不掐停循环：报错上屏（限 3 次防刷屏），下一帧继续
+    try { update(dt); } catch (e) { if (errs++ < 3) bootErr("update: " + ((e && e.message) || e)); }
+    try { render(); } catch (e) { if (errs++ < 3) bootErr("render: " + ((e && e.message) || e)); }
+    try { syncHud(); } catch (_) {}
     requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -1292,44 +1330,58 @@ function newSeed() { return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)
 /* ------------------------------- 启动 -------------------------------- */
 
 function boot() {
-  if (!initCanvas()) return;
-  const seed = newSeed();
-  startGame(seed);
-  const sn = $("seedNote");
-  if (sn) sn.textContent = "本局种子：" + seed + "（同一颗种子必然复现同一局）";
-  const b = $("btnStart");
-  if (b) b.onclick = () => beginGame(S.seed);
-  const bs = $("btnSeed");
-  if (bs) bs.onclick = () => {
-    const s = newSeed();
-    S = emptyState(s);
-    S.w = cv ? (cv.clientWidth || S.w) : S.w;
-    S.h = cv ? (cv.clientHeight || S.h) : S.h;
-    S.player.x = S.w / 2; S.player.y = S.h * 0.72; S.hopper.x = S.w / 2;
-    if (sn) sn.textContent = "本局种子：" + s + "（同一颗种子必然复现同一局）";
-    drawStaticStart();
-  };
-  const br = $("btnResume");
-  if (br) br.onclick = () => togglePause(false);
-  const bq = $("btnQuit");
-  if (bq) bq.onclick = () => { hide("ovPause"); S.paused = false; endGame("quit"); };
-  const ba = $("btnAgain");
-  if (ba) ba.onclick = () => beginGame(newSeed());
-  const bsave = $("btnSave");
-  if (bsave) bsave.onclick = () => saveReport();
+  // ① 先让入口可用：.ov 默认 display:none —— 任何后续异常都不允许把用户丢在"只有背景、无处可点"里
+  show("ovStart");
+  try {
+    if (!initCanvas()) { bootErr("canvas 初始化失败"); return; }
+    const seed = newSeed();
+    startGame(seed);
+    const sn = $("seedNote");
+    if (sn) sn.textContent = "本局种子：" + seed + "（同一颗种子必然复现同一局）";
+    const b = $("btnStart");
+    if (b) b.onclick = () => beginGame(S.seed);
+    const bs = $("btnSeed");
+    if (bs) bs.onclick = () => {
+      const s = newSeed();
+      if (!S) S = emptyState(s);
+      S.w = cv ? (cv.clientWidth || S.w) : S.w;
+      S.h = cv ? (cv.clientHeight || S.h) : S.h;
+      S.player.x = S.w / 2; S.player.y = S.h * 0.72; S.hopper.x = S.w / 2;
+      if (sn) sn.textContent = "本局种子：" + s + "（同一颗种子必然复现同一局）";
+      try { drawStaticStart(); } catch (_) {}
+    };
+    const br = $("btnResume");
+    if (br) br.onclick = () => togglePause(false);
+    const bq = $("btnQuit");
+    if (bq) bq.onclick = () => { if (!S) return; hide("ovPause"); S.paused = false; endGame("quit"); };
+    const ba = $("btnAgain");
+    if (ba) ba.onclick = () => beginGame(newSeed());
+    const bsave = $("btnSave");
+    if (bsave) bsave.onclick = () => saveReport();
 
-  const hintEl = $("hint");
-  // ⚠ 别用 navigator.maxTouchPoints 判"是否触屏"：Windows 上的浏览器会报一个正数
-  //   （QQ 浏览器实测 10），把纯键鼠桌面误判成触屏。pointer:coarse 看主指针、ontouchstart 看触摸能力，才可信。
-  const coarse = (typeof window !== "undefined") && (
-    (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) ||
-    ("ontouchstart" in window));
-  if (hintEl) hintEl.textContent = coarse ? "按住屏幕拖动去吃 · 别吃撑" : "WASD / 方向键（或拖动屏幕）· 别吃撑";
+    const hintEl = $("hint");
+    // ⚠ 别用 navigator.maxTouchPoints 判"是否触屏"：Windows 上的浏览器会报一个正数
+    //   （QQ 浏览器实测 10），把纯键鼠桌面误判成触屏。pointer:coarse 看主指针、ontouchstart 看触摸能力，才可信。
+    //   包 try：个别定制内核的 matchMedia 行为怪异，别让它把整个启动带崩。
+    let coarse = false;
+    try {
+      coarse = (typeof window !== "undefined") && (
+        (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) ||
+        ("ontouchstart" in window));
+    } catch (_) {}
+    if (hintEl) hintEl.textContent = coarse ? "按住屏幕拖动去吃 · 别吃撑" : "WASD / 方向键（或拖动屏幕）· 别吃撑";
 
-  bindInput();
-  loop();
+    bindInput();
+    loop();
+  } catch (e) {
+    bootErr("启动: " + ((e && e.message) || e));
+    return;
+  }
+  // ② startGame 会关闭全部遮罩，正常路径下把入口遮罩再打开
   // ⚠ 遮罩默认 display:none，不显式打开就永远进不去游戏（手机上没有键盘兜底 ⇒ 直接卡死）
   show("ovStart");
+  // ③ 启动完成——撤掉加载提示（若用纯静态版也早该看到遮罩了）
+  try { const tip = $("bootTip"); if (tip) tip.style.display = "none"; } catch (_) {}
 }
 
 /* ------------------------------ 对外接口 ------------------------------ */
