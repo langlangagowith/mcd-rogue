@@ -60,6 +60,15 @@
   button.small{flex:0 0 auto;padding:9px 12px;font-size:12px}
   button:active{transform:translateY(1px)}
   #reportImg{display:block;width:100%;border-radius:12px;border:1px solid var(--line);margin-top:10px}
+  /* 当日真实活动卡（flex：老内核不支持 grid，别改） */
+  #posterBox{display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.05);
+    border:1px solid var(--line);border-radius:12px;padding:8px;margin:0 0 10px}
+  #posterBox.off{display:none}
+  #posterImg{width:88px;height:88px;object-fit:cover;border-radius:9px;flex:0 0 auto;background:#241a2e}
+  #posterTxt{flex:1 1 auto;min-width:0}
+  .pt-lab{color:var(--gold);font-size:10px;letter-spacing:.08em;margin-bottom:3px}
+  .pt-t{font-size:12.5px;font-weight:800;line-height:1.4;margin-bottom:4px}
+  .pt-d{font-size:10.5px;color:var(--dim);line-height:1.5;max-height:32px;overflow:hidden}
   .note{color:var(--dim);font-size:11px;margin-top:8px;line-height:1.6}
   .kbd{display:inline-block;padding:1px 6px;border-radius:5px;background:#332545;
     border:1px solid #4a3560;font-size:11px}
@@ -120,10 +129,20 @@
       <li>吃到手 +分数，<b>空中接到是地上的两倍</b></li>
       <li>每件食物的<b>热量直接算进胃里</b>——安格斯厚牛堡一件顶三份小食</li>
       <li><b>连着吃 3 个同类</b>会「腻」：连击清零，还会慢下来</li>
-      <li>金色<b>优惠券</b>掉下来时抢着吃：清 12% 胃容量 + 6 秒双倍分</li>
+      <li>金色<b>优惠券</b>掉下来时抢着吃：清 12% 胃容量 + 6 秒双倍分
+        <span style="color:var(--dim)">（券是麦当劳<b>此刻真实在发</b>的券）</span></li>
     </ul>
+    <div id="posterBox" class="off">
+      <img id="posterImg" alt="麦当劳今日活动">
+      <div id="posterTxt">
+        <div class="pt-lab" id="posterLab">今天麦当劳真在搞这个</div>
+        <div class="pt-t" id="posterTitle"></div>
+        <div class="pt-d" id="posterDesc"></div>
+      </div>
+    </div>
     <div class="btns">
       <button class="primary" id="btnStart">开饭</button>
+      <button class="small" id="btnFree">随便玩玩</button>
       <button class="small" id="btnSeed">换种子</button>
     </div>
     <div class="note" id="seedNote"></div>
@@ -173,9 +192,13 @@
    音效全部由 Web Audio 现场合成 ⇒ 断网双击也能玩。
    ========================================================================= */
 
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 const FOODS = /*__FOODS__*/;
 const SPRITES = /*__SPRITES__*/;
+/* 真实感层：麦当劳官方在售券图与当日活动海报（均由 MCP 拉取后压缩内联，
+   运行时不碰网络 ⇒ 保住"离线可玩 / 零依赖"）。券图进 canvas 也不存在 CORS 问题。 */
+const COUPONS = /*__COUPONS__*/;
+const POSTER = /*__POSTER__*/;
 
 /* ------------------------------ 基础工具 ------------------------------ */
 
@@ -300,6 +323,9 @@ function emptyState(seed) {
     sickCat: "",
     doubleUntil: -1,
     coupons: 0,
+    couponGot: [],     // 吃到的真券（去重，进战报）
+    daily: false,      // 是否"每日挑战"局（seed = YYYYMMDD）
+    dayTag: "",
     spawnT: 0.8,
     couponT: CFG.COUPON_EVERY,
     shake: 0,
@@ -472,15 +498,21 @@ function spawnFood(f, x, y, vx, vy) {
 
 function spawnCoupon(atX, atY) {
   const h = S.hopper, m = hopperMouth(h);
-  S.items.push({
-    f: { n: "优惠券", p: 0, k: 0, c: "券", s: "coupon" },
+  // 掉的是麦当劳此刻真实在发的券（同一颗种子 ⇒ 同一张券，可复现）
+  const ci = (COUPONS && COUPONS.length) ? Math.floor(rng() * COUPONS.length) % COUPONS.length : -1;
+  const name = ci >= 0 ? COUPONS[ci].n : "优惠券";
+  const it = {
+    ci,
+    f: { n: name, p: 0, k: 0, c: "券", s: "coupon" },
     r: 20, x: atX == null ? m.x : atX, y: atY == null ? m.y : atY,
     vx: atX == null ? Math.sin(h.tilt) * 150 : 0, vy: atY == null ? 96 : 0,
     rot: (rng() - 0.5) * 0.6, vrot: (rng() - 0.5) * 3.2,
     fresh: true, rest: false, life: 0, coupon: true
-  });
+  };
+  S.items.push(it);
   h.fire = 0.24;
   sfx("coin");
+  return it;
 }
 
 function spawnInterval() {
@@ -513,6 +545,9 @@ function eat(idx) {
 
   if (it.coupon) {
     S.coupons++;
+    if (it.ci != null && it.ci >= 0 && !(S.couponGot || []).some((c) => c.i === it.ci)) {
+      S.couponGot.push({ i: it.ci, n: it.f.n });
+    }
     S.fullness = Math.max(0, S.fullness - CFG.COUPON_HEAL);
     S.doubleUntil = S.time + CFG.DOUBLE_TIME;
     burst(it.x, it.y, "#ffd24d", 30, { sp: 230, life: 0.75, rainbow: true, size: 5, lift: 90 });
@@ -695,6 +730,18 @@ function endGame(reason) {
 let cv = null, cx = null, DPR = 1;
 const sprites = {};
 let spritesReady = false;
+/** 真实券图（COUPONS 顺序一致）：data URL ⇒ 无 CORS、可进战报 canvas。 */
+const couponImgs = [];
+
+function loadImg(url, img) {
+  if (typeof Image === "undefined") return false;
+  const el = new Image();
+  el.onload = () => { img.complete = true; img.w = el.naturalWidth || el.width; img.h = el.naturalHeight || el.height; };
+  el.onerror = () => {};
+  el.src = url;
+  img.el = el;
+  return true;
+}
 
 function loadSprites() {
   let n = 0, done = 0;
@@ -705,13 +752,17 @@ function loadSprites() {
     const img = { complete: false, w: 0, h: 0, el: null };
     sprites[k] = img;
     if (typeof Image === "undefined") { done++; continue; }
-    const el = new Image();
-    el.onload = () => { img.complete = true; img.w = el.naturalWidth || el.width; img.h = el.naturalHeight || el.height; done++; if (done >= n) spritesReady = true; };
-    el.onerror = () => { done++; };
-    el.src = url;
-    img.el = el;
+    if (!loadImg(url, img)) { done++; continue; }
+    const prev = img.el.onload;
+    img.el.onload = () => { prev && prev(); done++; if (done >= n) spritesReady = true; };
+    img.el.onerror = () => { done++; };
   }
   if (n === 0) spritesReady = false;
+  for (let i = 0; i < (COUPONS || []).length; i++) {
+    const img = { complete: false, w: 0, h: 0, el: null };
+    couponImgs[i] = img;
+    loadImg(COUPONS[i].img, img);
+  }
 }
 
 function initCanvas() {
@@ -749,18 +800,28 @@ function drawFood(g, it) {
   g.translate(it.x, it.y);
   g.rotate(it.rot);
   if (it.coupon) {
-    // 优惠券：金色纸片 + 虚线裁切边
-    const w = it.r * 1.9, h = it.r * 1.25;
-    g.fillStyle = "#ffd24d";
-    roundRect(g, -w / 2, -h / 2, w, h, 5); g.fill();
-    g.strokeStyle = "rgba(120,70,0,.55)"; g.lineWidth = 1.5;
-    g.setLineDash([4, 3]);
-    roundRect(g, -w / 2 + 3, -h / 2 + 3, w - 6, h - 6, 4); g.stroke();
-    g.setLineDash([]);
-    g.fillStyle = "#7a4a00";
-    g.font = "bold " + Math.round(it.r * 0.95) + "px system-ui,sans-serif";
-    g.textAlign = "center"; g.textBaseline = "middle";
-    g.fillText("券", 0, 0);
+    // 优惠券：**麦当劳真实在售券图** + 金边（图没好/没券数据时退回自绘纸片）
+    const img = couponImgs[it.ci || 0];
+    if (img && img.complete && img.el) {
+      const d = it.r * 2.3;
+      g.fillStyle = "#ffd24d";
+      roundRect(g, -d / 2 - 3, -d / 2 - 3, d + 6, d + 6, 7); g.fill();
+      g.drawImage(img.el, -d / 2, -d / 2, d, d);
+      g.strokeStyle = "rgba(255,240,180,.9)"; g.lineWidth = 2;
+      roundRect(g, -d / 2, -d / 2, d, d, 6); g.stroke();
+    } else {
+      const w = it.r * 1.9, h = it.r * 1.25;
+      g.fillStyle = "#ffd24d";
+      roundRect(g, -w / 2, -h / 2, w, h, 5); g.fill();
+      g.strokeStyle = "rgba(120,70,0,.55)"; g.lineWidth = 1.5;
+      g.setLineDash([4, 3]);
+      roundRect(g, -w / 2 + 3, -h / 2 + 3, w - 6, h - 6, 4); g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = "#7a4a00";
+      g.font = "bold " + Math.round(it.r * 0.95) + "px system-ui,sans-serif";
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText("券", 0, 0);
+    }
   } else if (spr && spr.complete && spr.el) {
     // 绘制系数 2.8 与素材 FILL=0.72（prepare_sprites.py）配套：
     // 视觉半径 = 0.72 × 2.8 / 2 ≈ 1.008 × 碰撞半径 —— "看起来碰到就吃到"
@@ -799,6 +860,16 @@ function drawFoodFallback(g, it) {
     g.fillStyle = "#fff3d0";
     roundRect(g, -r * 0.95, -r * 0.5, r * 1.9, r * 0.3, r * 0.2); g.fill();
   }
+}
+
+/** 按像素宽度截断文本（measureText 在个别环境缺失时退回硬截断）。 */
+function clipText(g, s, maxW) {
+  s = String(s == null ? "" : s);
+  if (!g.measureText) return s.length > 12 ? s.slice(0, 12) + "…" : s;
+  if (g.measureText(s).width <= maxW) return s;
+  let t = s;
+  while (t.length > 1 && g.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+  return t + "…";
 }
 
 /** 薯条侠：番茄盒身体 + 薯条冠 + 会看食物也会张嘴的脸。 */
@@ -1122,16 +1193,17 @@ let reportURL = "";
 function drawReport() {
   if (typeof document === "undefined" || !document.createElement) return;
   const c = document.createElement("canvas");
-  c.width = 720; c.height = 1080;
+  const H = 1180;               // 比 1080 高 100px：给底部「吃到的真券」留位置
+  c.width = 720; c.height = H;
   const g = c.getContext("2d");
   if (!g) return;
 
-  const bg = g.createLinearGradient(0, 0, 0, 1080);
+  const bg = g.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, "#1b1024"); bg.addColorStop(1, "#0a0710");
-  g.fillStyle = bg; g.fillRect(0, 0, 720, 1080);
+  g.fillStyle = bg; g.fillRect(0, 0, 720, H);
   const lg = g.createRadialGradient(360, 60, 10, 360, 60, 620);
   lg.addColorStop(0, "rgba(255,90,60,.34)"); lg.addColorStop(1, "rgba(0,0,0,0)");
-  g.fillStyle = lg; g.fillRect(0, 0, 720, 1080);
+  g.fillStyle = lg; g.fillRect(0, 0, 720, H);
 
   g.textAlign = "center"; g.textBaseline = "middle";
   g.fillStyle = "#ffd24d"; g.font = "bold 34px system-ui,sans-serif";
@@ -1185,11 +1257,39 @@ function drawReport() {
   const lines = v.length > 22 ? [v.slice(0, 22), v.slice(22)] : [v];
   lines.forEach((ln, i) => g.fillText(ln, 360, 830 + i * 30));
 
+  /* --- 本局吃到的真券（麦当劳此刻在售，图来自官方 MCP） --- */
+  const got = (S.couponGot || []).slice(0, 3);
+  g.fillStyle = "#a99bbd"; g.font = "16px system-ui,sans-serif";
+  g.fillText(got.length ? "本局抢到的真券 · 麦当劳此刻在发"
+                        : "本局没抢到券 —— 券每 20 秒掉一张，记得抬头", 360, 892);
+  if (got.length) {
+    const bw = 118, gap = 14;
+    const x0 = 360 - (got.length * bw + (got.length - 1) * gap) / 2;
+    g.textBaseline = "middle";
+    got.forEach((cp, i) => {
+      const x = x0 + i * (bw + gap), y = 910;
+      const img = couponImgs[cp.i];
+      g.fillStyle = "#241a2e";
+      roundRect(g, x, y, bw, bw, 10); g.fill();
+      if (img && img.complete && img.el) g.drawImage(img.el, x, y, bw, bw);
+      else { g.fillStyle = "#ffd24d"; g.font = "bold 26px system-ui,sans-serif"; g.fillText("券", x + bw / 2, y + bw / 2); }
+      g.strokeStyle = "rgba(255,210,77,.55)"; g.lineWidth = 2;
+      roundRect(g, x, y, bw, bw, 10); g.stroke();
+      g.fillStyle = "#efe7ff"; g.font = "15px system-ui,sans-serif";
+      g.fillText(clipText(g, cp.n, bw + 46), x + bw / 2, y + bw + 22);
+    });
+    g.textBaseline = "middle";
+  }
+
   g.fillStyle = "#6f6480"; g.font = "15px system-ui,sans-serif";
-  g.fillText("数据来自麦当劳官方 MCP · 热量与价格均为真实值", 360, 950);
-  g.fillText("最长连击 x" + S.bestCombo + " · 腻了 " + S.sickTimes + " 次", 360, 978);
+  g.fillText("数据来自麦当劳官方 MCP · 热量与价格均为真实值", 360, H - 130);
+  g.fillText("最长连击 x" + S.bestCombo + " · 腻了 " + S.sickTimes + " 次", 360, H - 102);
+  if (S.daily && S.dayTag) {
+    g.fillStyle = "#ffd24d";
+    g.fillText("今日挑战 #" + S.dayTag + " · 同一天所有人同一局 · ?d=" + S.dayTag + " 可回玩这一天", 360, H - 74);
+  }
   g.fillStyle = "#4b4159"; g.font = "14px system-ui,sans-serif";
-  g.fillText("麦门开饭 McChow · 麦当劳程序员创意开发大赛参赛作品", 360, 1036);
+  g.fillText("麦门开饭 McChow · 麦当劳程序员创意开发大赛参赛作品", 360, H - 44);
 
   const img = $("reportImg");
   try {
@@ -1296,6 +1396,8 @@ function startGame(seed) {
   const s = (seed == null ? newSeed() : seed) >>> 0;
   rng = mulberry32(s);
   S = emptyState(s);
+  S.daily = isDailySeed(s);
+  S.dayTag = S.daily ? String(s) : "";
   if (cv) { S.w = cv.clientWidth || S.w; S.h = cv.clientHeight || S.h; }
   S.player.x = S.w / 2;
   S.player.y = S.h * 0.72;
@@ -1314,6 +1416,19 @@ function beginGame(seed) {
   if (S) S.started = true;
 }
 
+/** 开始页的「今日真实活动」卡：海报 + 标题（数据来自 MCP，已压缩内联）。
+    ⚠ 用 className 而不是 classList —— 老 WebView 的 classList 行为不保证。 */
+function renderPoster() {
+  const box = $("posterBox");
+  if (!box || !POSTER || !POSTER.img) return;
+  const pi = $("posterImg"), pt = $("posterTitle"), pd = $("posterDesc"), pl = $("posterLab");
+  if (pi) pi.src = POSTER.img;
+  if (pt) pt.textContent = POSTER.title || "麦当劳今日活动";
+  if (pd) pd.textContent = POSTER.text || "";
+  if (pl) pl.textContent = (POSTER.date ? POSTER.date + " · " : "") + "今天麦当劳真在搞这个";
+  box.className = "";
+}
+
 /** 开始前的静帧：让首屏就有东西看，而不是一片黑。 */
 function drawStaticStart() {
   if (!cx || !S) return;
@@ -1327,6 +1442,39 @@ function drawStaticStart() {
 
 function newSeed() { return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0; }
 
+/* ------------------------- 每日挑战：同一天同一局 ------------------------- */
+
+function dayTagOf(d) {
+  const y = d.getFullYear(), m = d.getMonth() + 1, dd = d.getDate();
+  return "" + y + (m < 10 ? "0" : "") + m + (dd < 10 ? "0" : "") + dd;
+}
+
+/** 开局种子 = 日期（YYYYMMDD）⇒ 这一天全世界玩到的是同一局；
+    `?d=20261010` 用来回玩任意一天的历史题面。 */
+function currentSeed() {
+  let q = null;
+  try {
+    const s = (typeof location !== "undefined" && location.search) || "";
+    const m = /[?&]d=(\d{8})(?:&|$)/.exec(s);
+    if (m) q = m[1];
+  } catch (_) {}
+  const tag = q || dayTagOf(new Date());
+  return { tag, seed: (parseInt(tag, 10) >>> 0) || newSeed() };
+}
+
+/** 长得像 YYYYMMDD 就是每日挑战局 —— 判定只看种子本身，任何入口进来结论都一致。 */
+function isDailySeed(seed) { return seed >= 20000101 && seed <= 29991231; }
+
+const DAY = currentSeed();
+
+function seedNoteText(seed) {
+  if (isDailySeed(seed)) {
+    return "今日挑战 #" + seed + "：今天所有人玩到的是同一局（同出料、同券）。"
+      + "把链接 ?d=" + seed + " 发给朋友，TA 玩到的和你一模一样。";
+  }
+  return "本局种子：" + seed + "（同一颗种子必然复现同一局）";
+}
+
 /* ------------------------------- 启动 -------------------------------- */
 
 function boot() {
@@ -1334,12 +1482,18 @@ function boot() {
   show("ovStart");
   try {
     if (!initCanvas()) { bootErr("canvas 初始化失败"); return; }
-    const seed = newSeed();
+    const seed = DAY.seed;
     startGame(seed);
     const sn = $("seedNote");
-    if (sn) sn.textContent = "本局种子：" + seed + "（同一颗种子必然复现同一局）";
+    if (sn) sn.textContent = seedNoteText(seed);
+    renderPoster();
     const b = $("btnStart");
-    if (b) b.onclick = () => beginGame(S.seed);
+    if (b) {
+      b.textContent = "开饭 · 今日 #" + DAY.tag.slice(4);
+      b.onclick = () => beginGame(DAY.seed);
+    }
+    const bf = $("btnFree");
+    if (bf) bf.onclick = () => { const s = newSeed(); startGame(s); S.started = true; if (sn) sn.textContent = seedNoteText(s); };
     const bs = $("btnSeed");
     if (bs) bs.onclick = () => {
       const s = newSeed();
@@ -1347,15 +1501,16 @@ function boot() {
       S.w = cv ? (cv.clientWidth || S.w) : S.w;
       S.h = cv ? (cv.clientHeight || S.h) : S.h;
       S.player.x = S.w / 2; S.player.y = S.h * 0.72; S.hopper.x = S.w / 2;
-      if (sn) sn.textContent = "本局种子：" + s + "（同一颗种子必然复现同一局）";
+      if (sn) sn.textContent = seedNoteText(s);
       try { drawStaticStart(); } catch (_) {}
     };
     const br = $("btnResume");
     if (br) br.onclick = () => togglePause(false);
     const bq = $("btnQuit");
     if (bq) bq.onclick = () => { if (!S) return; hide("ovPause"); S.paused = false; endGame("quit"); };
+    // 「再来一局」= 今日同题再来（每日挑战要能反复刷同一题比分）
     const ba = $("btnAgain");
-    if (ba) ba.onclick = () => beginGame(newSeed());
+    if (ba) ba.onclick = () => beginGame(DAY.seed);
     const bsave = $("btnSave");
     if (bsave) bsave.onclick = () => saveReport();
 
@@ -1388,6 +1543,7 @@ function boot() {
 
 const API = {
   VERSION, CFG, FOODS, SPRITES, CAT_COLOR, RANKS,
+  COUPONS, POSTER, couponImgs, DAY, isDailySeed, dayTagOf, seedNoteText,
   keys, pointer,
   reset: (seed, opt) => { if (opt && opt.autoStart) beginGame(seed); else startGame(seed); return S; },
   start: () => { S.started = true; },

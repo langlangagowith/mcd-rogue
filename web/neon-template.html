@@ -870,6 +870,22 @@ function startGame(seed) {
 }
 function newSeed() { return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0; }
 
+/* ------------------------- 每日挑战：同一天同一局 ------------------------- */
+function dayTagOf(d) {
+  const y = d.getFullYear(), m = d.getMonth() + 1, dd = d.getDate();
+  return "" + y + (m < 10 ? "0" : "") + m + (dd < 10 ? "0" : "") + dd;
+}
+/** `?d=YYYYMMDD` 回玩那一天；没有就打今日（与 arcade 口径一致）。 */
+function dayFromUrl() {
+  try {
+    const s = (typeof location !== "undefined" && location.search) || "";
+    const m = /[?&]d=(\d{8})(?:&|$)/.exec(s);
+    if (m) return m[1];
+  } catch (_) {}
+  return null;
+}
+function isDailySeed(seed) { return seed >= 20000101 && seed <= 29991231; }
+
 /* ============================== 启动 ================================= */
 function boot() {
   // ① 先让入口可用：.ov 默认 display:none —— 任何后续异常都不允许把用户丢在"只有背景、无处可点"里
@@ -879,10 +895,14 @@ function boot() {
     // URLSearchParams 在老内核可能不存在——seed 参数只是调试口，缺失无害，不能把启动带崩
     let seedQ = null;
     try { seedQ = new URLSearchParams(location.search).get("seed"); } catch (_) {}
-    const seed0 = (parseInt(seedQ || "0", 10) || newSeed()) >>> 0;
+    const dayQ = dayFromUrl();
+    // 默认走「每日挑战」：种子 = 当日 YYYYMMDD ⇒ 同一天所有人同一局
+    const seed0 = dayQ ? (parseInt(dayQ, 10) >>> 0)
+                       : ((parseInt(seedQ || "0", 10) || parseInt(dayTagOf(new Date()), 10)) >>> 0);
     const hint = $("hint");
     if (hint) hint.textContent = "自动开火 · 你只管走位（WASD / 方向键 / 拖动）";
-    const tag = $("seedTag"); if (tag) tag.textContent = `种子 ${seed0}`;
+    const tag = $("seedTag");
+    if (tag) tag.textContent = isDailySeed(seed0) ? `今日挑战 #${seed0}` : `种子 ${seed0}`;
     reset(seed0, { autoStart: false }); render(); syncHud();
 
     const bStart = $("btnStart"); if (bStart) bStart.onclick = () => startGame(seed0);
@@ -892,10 +912,11 @@ function boot() {
       if (tag) tag.textContent = `种子 ${s}`; render(); syncHud();
       if (bStart) bStart.onclick = () => startGame(s);
     };
-    const bAgain = $("btnAgain"); if (bAgain) bAgain.onclick = () => startGame(newSeed());
+    // 「再来一局 / 重开」= 今日同题再来（每日挑战要能反复刷同一题比分）
+    const bAgain = $("btnAgain"); if (bAgain) bAgain.onclick = () => startGame(seed0);
     const bHome = $("btnHome"); if (bHome) bHome.onclick = () => { location.href = "./index.html"; };
     const bResume = $("btnResume"); if (bResume) bResume.onclick = () => { if (S) { S.paused = false; hide("ovPause"); } };
-    const bRestart = $("btnRestart"); if (bRestart) bRestart.onclick = () => startGame(newSeed());
+    const bRestart = $("btnRestart"); if (bRestart) bRestart.onclick = () => startGame(seed0);
     const bMute = $("btnMute"); if (bMute) bMute.onclick = () => { muted = !muted; bMute.textContent = muted ? "取消静音" : "静音切换"; };
 
     window.addEventListener("keydown", (e) => {
@@ -956,6 +977,8 @@ if (typeof document !== "undefined" && document.getElementById) boot();
 // 供无头回归使用：只暴露模拟，不含渲染
 const API = {
   VERSION, WEAPONS, PASSIVES, ARCH,
+  isDailySeed, dayTagOf,                    // 每日挑战：seed = YYYYMMDD
+  daySeed: () => (parseInt(dayFromUrl() || dayTagOf(new Date()), 10) >>> 0),
   keys, pointer,               // 暴露输入状态：无头测试用它驱动机器人走位
   reset: (seed, opt) => reset(seed >>> 0, opt),
   update: (dt) => update(dt),

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""把真实营养数据与 12 张食物立绘注入 web/arcade-template.html，产出单文件 docs/arcade.html。
+"""把真实营养数据、12 张食物立绘与「真实感层」素材注入 web/arcade-template.html，产出单文件 docs/arcade.html。
 
 麦门开饭 · 出餐口大作战：出料口倒真实菜单、玩家跑去吃、吃撑结束。
 - 食物清单与热量/价格：麦当劳官方 MCP（data/cardpool.json）。
 - 立绘：assets/raw（商汤出图）→ scripts/prepare_sprites.py 抠底归一化 → assets/sprites（256px **webp**）。
+- 真实感层：真实在售券图（assets/coupons）+ 当日活动海报（assets/poster），
+  由 scripts/fetch_realtime.py 拉取、scripts/prepare_realtime.py 压缩。
   素材加工链依赖 Pillow/numpy（一次性）；**本脚本是每次构建都跑的主链，零第三方依赖**：
   只把成品 webp 字节直接 base64 内联，不解码像素。
 
@@ -22,7 +24,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TPL = os.path.join(ROOT, "web", "arcade-template.html")
 POOL = os.path.join(ROOT, "data", "cardpool.json")
 SPRITES_DIR = os.path.join(ROOT, "assets", "sprites")
+REALTIME = os.path.join(ROOT, "data", "realtime.json")
+COUPON_DIR = os.path.join(ROOT, "assets", "coupons")
+POSTER_DIR = os.path.join(ROOT, "assets", "poster")
 OUT = os.path.join(ROOT, "docs", "arcade.html")
+SIZE_BUDGET_KB = 350    # 弱网口径 60KB/s ⇒ 350KB ≈ 6s；超了打印警告
 
 SLUGS = [
     "burger-double", "burger-chicken", "burger-angus", "fries",
@@ -94,9 +100,43 @@ def foods_from_cardpool(pool: dict) -> list[dict]:
     return sorted(seen.values(), key=lambda x: (x["k"], x["n"]))
 
 
+def realtime_payload() -> tuple[list[dict], dict | None]:
+    """真实感层：券图（可缺，缺了游戏退回自绘纸片）与当日活动海报（可缺）。"""
+    coupons: list[dict] = []
+    poster: dict | None = None
+    if not os.path.isfile(REALTIME):
+        print("⚠ 没有 data/realtime.json（跑 fetch_realtime.py + prepare_realtime.py 生成）"
+              " ⇒ 券退回自绘纸片、开始页不显示活动")
+        return coupons, poster
+
+    rt = json.load(open(REALTIME, encoding="utf-8"))
+    for c in rt.get("coupons") or []:
+        p = os.path.join(COUPON_DIR, c["f"] + ".webp")
+        if not os.path.isfile(p):
+            print(f"⚠ 缺券图 {p}，跳过「{c['n']}」")
+            continue
+        b64 = base64.b64encode(open(p, "rb").read()).decode("ascii")
+        coupons.append({"n": c["n"], "img": "data:image/webp;base64," + b64})
+
+    pr = rt.get("poster")
+    if pr:
+        p = os.path.join(POSTER_DIR, pr["f"] + ".webp")
+        if os.path.isfile(p):
+            b64 = base64.b64encode(open(p, "rb").read()).decode("ascii")
+            poster = {
+                "date": pr.get("date", ""),
+                "title": pr.get("title", ""),
+                "text": pr.get("text", ""),
+                "img": "data:image/webp;base64," + b64,
+            }
+        else:
+            print(f"⚠ 缺海报 {p}")
+    return coupons, poster
+
+
 def main() -> int:
     tpl = open(TPL, encoding="utf-8").read()
-    for ph in ("/*__FOODS__*/", "/*__SPRITES__*/"):
+    for ph in ("/*__FOODS__*/", "/*__SPRITES__*/", "/*__COUPONS__*/", "/*__POSTER__*/"):
         if ph not in tpl:
             print(f"❌ 模板里找不到占位符 {ph}")
             return 1
@@ -127,13 +167,23 @@ def main() -> int:
         b64 = base64.b64encode(open(p, "rb").read()).decode("ascii")
         sprites[slug] = "data:image/webp;base64," + b64
 
+    coupons, poster = realtime_payload()
+
     foods_json = json.dumps(foods, ensure_ascii=False, separators=(",", ":"))
     sprites_json = json.dumps(sprites, separators=(",", ":"))
+    coupons_json = json.dumps(coupons, ensure_ascii=False, separators=(",", ":"))
+    poster_json = json.dumps(poster, ensure_ascii=False, separators=(",", ":"))
     # 与 build_web / build_neon 同款：转义 <，避免提前闭合 script 标签
     foods_json = foods_json.replace("<", "\\u003c")
     sprites_json = sprites_json.replace("<", "\\u003c")
+    coupons_json = coupons_json.replace("<", "\\u003c")
+    poster_json = poster_json.replace("<", "\\u003c")
 
-    html = tpl.replace("/*__FOODS__*/", foods_json).replace("/*__SPRITES__*/", sprites_json)
+    html = (tpl
+            .replace("/*__FOODS__*/", foods_json)
+            .replace("/*__SPRITES__*/", sprites_json)
+            .replace("/*__COUPONS__*/", coupons_json)
+            .replace("/*__POSTER__*/", poster_json))
     if not html.endswith("\n"):
         html += "\n"
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
@@ -144,11 +194,15 @@ def main() -> int:
     dist = Counter(f["s"] for f in foods)
     kb = os.path.getsize(OUT) / 1024
     print(f"✅ 已写出 {OUT}  ({kb:.1f} KB)")
-    print(f"   注入餐品 {len(foods)} 种 · 立绘 {len(SLUGS)} 张")
+    print(f"   注入餐品 {len(foods)} 种 · 立绘 {len(SLUGS)} 张 · 真实券 {len(coupons)} 张"
+          f" · 活动海报 {'有' if poster else '无'}")
     print("   立绘用量：" + " / ".join(f"{s}×{dist[s]}" for s in SLUGS))
     kmin = min(f["k"] for f in foods)
     kmax = max(f["k"] for f in foods)
     print(f"   热量区间 {kmin}~{kmax} kcal")
+    if kb > SIZE_BUDGET_KB:
+        print(f"⚠ 体积 {kb:.0f} KB 超出预算 {SIZE_BUDGET_KB} KB（弱网 60KB/s ≈ {kb/60:.1f}s 才可点）"
+              " —— 压素材质量或减券数")
     return 0
 
 
