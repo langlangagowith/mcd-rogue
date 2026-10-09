@@ -4,9 +4,9 @@
 
 麦门开饭 · 出餐口大作战：出料口倒真实菜单、玩家跑去吃、吃撑结束。
 - 食物清单与热量/价格：麦当劳官方 MCP（data/cardpool.json）。
-- 立绘：assets/raw（商汤出图）→ scripts/prepare_sprites.py 抠底归一化 → assets/sprites。
+- 立绘：assets/raw（商汤出图）→ scripts/prepare_sprites.py 抠底归一化 → assets/sprites（256px **webp**）。
   素材加工链依赖 Pillow/numpy（一次性）；**本脚本是每次构建都跑的主链，零第三方依赖**：
-  只把成品 PNG 字节直接 base64 内联，不解码像素。
+  只把成品 webp 字节直接 base64 内联，不解码像素。
 
 用法：
     python build_arcade.py
@@ -120,12 +120,12 @@ def main() -> int:
 
     sprites: dict[str, str] = {}
     for slug in SLUGS:
-        p = os.path.join(SPRITES_DIR, slug + ".png")
+        p = os.path.join(SPRITES_DIR, slug + ".webp")
         if not os.path.exists(p):
             print(f"❌ 缺少立绘 {p}（先跑 prepare_sprites.py）")
             return 1
         b64 = base64.b64encode(open(p, "rb").read()).decode("ascii")
-        sprites[slug] = "data:image/png;base64," + b64
+        sprites[slug] = "data:image/webp;base64," + b64
 
     foods_json = json.dumps(foods, ensure_ascii=False, separators=(",", ":"))
     sprites_json = json.dumps(sprites, separators=(",", ":"))

@@ -19,7 +19,10 @@
   5. 归一化居中：取 alpha 包围盒 → 缩放使最长边 = FILL×画布 → 居中。
      FILL=0.72 与模板里绘制系数 2.8 配套：视觉半径 = 0.72×2.8/2 ≈ 1.008×碰撞半径，
      即"看起来碰到就吃到"（两处改一处必须同步，冒烟测试有断言钉住这组耦合）。
-  6. LANCZOS 降采样到 OUT_SIZE，落盘 assets/sprites/<slug>.png。
+  6. LANCZOS 降采样到 OUT_SIZE，**导出 256px webp（q90）** 落盘 assets/sprites/<slug>.webp。
+     ⚠ 2026-10-09 晚改：PNG → webp —— 扁平插画在 webp 下有损 q90 肉眼无损，
+     12 张从 474KB 压到 112KB（产物 684KB → ~200KB，弱网打开从 11s 降到 ~3s，
+     这正是手机端"进去只有背景"（大文件半加载）的药）。
 
 用法：
     python prepare_sprites.py             # 处理全部 12 张并打印质检表
@@ -164,8 +167,8 @@ def process(slug: str) -> dict:
     out.paste(small, ((OUT_SIZE - nw) // 2, (OUT_SIZE - nh) // 2), small)
 
     os.makedirs(OUT_DIR, exist_ok=True)
-    out_path = os.path.join(OUT_DIR, slug + ".png")
-    out.save(out_path, "PNG", optimize=True)
+    out_path = os.path.join(OUT_DIR, slug + ".webp")
+    out.save(out_path, "WEBP", quality=90, method=6)
 
     # ---------------- 质检（量最终产物 + 源图） ----------------
     a = np.asarray(out)[:, :, 3]
