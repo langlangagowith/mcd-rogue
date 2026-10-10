@@ -114,7 +114,16 @@ def build(snap: dict) -> dict:
         rounds[rnd] = cards
         stats[rnd] = (len(cards), len(meals))
 
-    # 活动事件（取标题 + 截断描述），供"今日事件"用
+    # 活动事件（标题 + 清洗后的描述），供"今日事件"用
+    def clean_campaign_text(raw: str) -> str:
+        """MCP 活动 content 混着字段名与 HTML（**活动内容介绍**：… **活动图片介绍**：<img …>）。
+        网页端是直接当文案显示的 ⇒ 必须洗成纯文本：去标签、去 **xxx**：字段名、折叠空白。"""
+        s = raw or ""
+        s = re.sub(r"<[^>]*>", " ", s)               # 去 HTML 标签（含 <img …>）
+        s = re.sub(r"\*\*[^*]{0,20}\*\*\s*[:：]?", " ", s)  # 去 **活动内容介绍**：等加粗字段名
+        s = re.sub(r"\s+", " ", s).strip()
+        return s[:160]
+
     events = []
     for c in snap.get("campaigns", []):
         title = (c.get("title") or "").strip()
@@ -123,7 +132,7 @@ def build(snap: dict) -> dict:
         events.append({
             "date": c.get("date", ""),
             "title": title,
-            "text": re.sub(r"\s+", " ", (c.get("content") or "")).strip()[:160],
+            "text": clean_campaign_text(c.get("content")),
         })
 
     return {

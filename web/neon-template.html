@@ -3,13 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="format-detection" content="telephone=no,email=no,address=no" />
+<meta name="x5-orientation" content="portrait" />
+<meta name="screen-orientation" content="portrait" />
 <title>麦门幸存者 McSurvivor · 麦门开饭</title>
 <style>
   :root{
     --bg:#0d0b12; --grid:#1b1626; --fg:#f6f2e8; --dim:#9a93a8;
     --hot:#ff3b30; --gold:#ffc72c; --ok:#3ddc84;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);
     font:14px/1.5 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
   #cv{display:block;width:100%;height:100vh;height:100dvh;touch-action:none}
@@ -55,6 +59,11 @@
   #xpFill{background:linear-gradient(90deg,#7de3ff,#3ddc84)}
   #clock{font-size:22px;font-weight:800;letter-spacing:1px;text-shadow:0 2px 8px #000}
   #lvtag{font-size:12px;color:var(--gold);font-weight:700}
+  /* HUD 里的暂停按钮：手机（微信）没有键盘，没它就没法暂停/进设置 */
+  .hudbtn{pointer-events:auto;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+    color:#e8e2f2;font-size:12px;font-weight:700;padding:8px 12px;border-radius:9px;cursor:pointer;
+    margin-top:6px;font-family:inherit}
+  .hudbtn:active{transform:translateY(1px)}
   #hint{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:5;
     color:#8f88a0;font-size:12px;pointer-events:none;text-align:center}
   #toast{position:fixed;left:50%;top:52%;transform:translate(-50%,-50%);z-index:6;
@@ -94,6 +103,7 @@
   <div style="text-align:right">
     <div id="clock">00:00</div>
     <div id="lvtag">Lv.1 · 击杀 0</div>
+    <button class="hudbtn" id="btnPauseHud" type="button">⏸ 暂停</button>
   </div>
 </div>
 <div id="hint"></div>
@@ -106,7 +116,7 @@
       你是刚出锅的<b>薯条侠</b>。餐盘里的东西都活了，全都朝你冲过来。<br>
       自动开火，你只管<b>走位</b>；每升一级<b>三选一</b>构筑。撑过 <b>5 分钟</b>就算通关。
     </div>
-    <div class="stats">
+    <div class="stats" id="startStats">
       <div><span>移动</span><b>WASD / 方向键 / 拖动</b></div>
       <div><span>暂停</span><b><i class="kbd">P</i> / <i class="kbd">Esc</i></b></div>
       <div><span>静音</span><b><i class="kbd">M</i></b></div>
@@ -918,6 +928,11 @@ function boot() {
     const bResume = $("btnResume"); if (bResume) bResume.onclick = () => { if (S) { S.paused = false; hide("ovPause"); } };
     const bRestart = $("btnRestart"); if (bRestart) bRestart.onclick = () => startGame(seed0);
     const bMute = $("btnMute"); if (bMute) bMute.onclick = () => { muted = !muted; bMute.textContent = muted ? "取消静音" : "静音切换"; };
+    // 手机（含微信）没有键盘：HUD 上的「⏸」是触屏玩家进暂停面板（重开/静音）的唯一入口
+    const bPauseHud = $("btnPauseHud");
+    if (bPauseHud) bPauseHud.onclick = () => {
+      if (S && S.started && !S.over && !S.levelup && !S.paused) { S.paused = true; show("ovPause"); }
+    };
 
     window.addEventListener("keydown", (e) => {
       const k = (e.key || "").toLowerCase();
@@ -961,7 +976,18 @@ function boot() {
       coarse = !!(window.matchMedia && window.matchMedia("(pointer:coarse)").matches) ||
                ("ontouchstart" in window);
     } catch (_) {}
-    if (coarse && hint) hint.textContent = "按住屏幕拖动 · 自动开火";
+    if (coarse) {
+      if (hint) hint.textContent = "按住屏幕拖动 · 自动开火";
+      // 触屏场景：开始卡的操作表换触摸版（键盘键位对手机用户是干扰，P/M/R 手机上根本按不到）
+      const st = $("startStats");
+      if (st) {
+        st.innerHTML =
+          "<div><span>移动</span><b>按住屏幕拖动</b></div>" +
+          "<div><span>暂停</span><b>点右上「⏸」</b></div>" +
+          "<div><span>静音</span><b>暂停后可切换</b></div>" +
+          "<div><span>重开</span><b>暂停 / 结算后可选</b></div>";
+      }
+    }
   } catch (e) {
     bootErr("启动: " + ((e && e.message) || e));
     return;

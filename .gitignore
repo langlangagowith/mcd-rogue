@@ -29,3 +29,7 @@ assets/_contact.png
 
 # 本机目检脚本与截图（一次性探针，不入库）
 _probe/
+
+# 内部监控与外部参照（含用户名 / 第三方内容，仅供内部使用）
+.ranking.md
+.top1.md

@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#12100e">
+<meta name="format-detection" content="telephone=no,email=no,address=no">
+<meta name="x5-orientation" content="portrait">
+<meta name="screen-orientation" content="portrait">
 <title>麦门开饭 McRogue · 一局打完今天吃什么</title>
 <meta name="description" content="用麦当劳真实菜单、真实营养数据玩一局一日三餐的肉鸽小游戏。">
 <style>
@@ -13,6 +16,7 @@
   --ok:#4cc38a; --warn:#ffb020;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
   font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
 body{padding:14px 14px 108px;max-width:760px;margin:0 auto;font-size:15px;line-height:1.5}
@@ -30,7 +34,7 @@ h2{font-size:14px;margin:0 0 8px;color:var(--gold);font-weight:600}
   border:1px solid var(--line);color:var(--dim);margin:0 4px 4px 0}
 .tag.hot{border-color:#5a3a12;color:var(--gold);background:#241b0c}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-.tab{font-size:12px;padding:5px 11px;border-radius:20px;border:1px solid var(--line);
+.tab{font-size:12px;padding:8px 13px;border-radius:20px;border:1px solid var(--line);
   background:transparent;color:var(--dim);cursor:pointer}
 .tab.on{background:var(--gold);color:#241b0c;border-color:var(--gold);font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
@@ -40,8 +44,8 @@ h2{font-size:14px;margin:0 0 8px;color:var(--gold);font-weight:600}
 .dish.on{border-color:var(--gold);background:#2c2418;box-shadow:0 0 0 1px var(--gold) inset}
 .dish .n{font-size:13px;line-height:1.35;min-height:35px}
 .dish .p{color:var(--gold);font-weight:700;font-size:15px}
-.dish .k{font-size:11px;color:var(--dim2);margin-top:2px}
-.dish .cat{position:absolute;top:7px;right:7px;font-size:10px;color:var(--dim2)}
+.dish .k{font-size:12px;color:var(--dim2);margin-top:2px}
+.dish .cat{position:absolute;top:7px;right:7px;font-size:11px;color:var(--dim2)}
 .tray{position:fixed;left:0;right:0;bottom:0;background:#1a1712;border-top:1px solid var(--line);
   padding:10px 14px calc(10px + env(safe-area-inset-bottom));z-index:20}
 .tray .in{max-width:760px;margin:0 auto}
@@ -50,9 +54,9 @@ h2{font-size:14px;margin:0 0 8px;color:var(--gold);font-weight:600}
 button.primary{width:100%;padding:13px;border-radius:11px;border:0;background:var(--gold);
   color:#241b0c;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit}
 button.primary:disabled{background:#3a332a;color:var(--dim2);cursor:not-allowed}
-button.ghost{padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:transparent;
+button.ghost{padding:10px 18px;border-radius:10px;border:1px solid var(--line);background:transparent;
   color:var(--txt);font-size:14px;cursor:pointer;font-family:inherit}
-.coupon{border:1px dashed #5a4a2a;border-radius:9px;padding:7px 10px;font-size:12px;cursor:pointer;
+.coupon{border:1px dashed #5a4a2a;border-radius:9px;padding:10px 12px;font-size:12px;cursor:pointer;
   background:#1f1a12;color:var(--dim)}
 .coupon.on{border:1px solid var(--gold);color:var(--gold);background:#2c2418}
 .coupon.used{opacity:.35;text-decoration:line-through;cursor:not-allowed}
@@ -106,8 +110,8 @@ canvas{width:100%;border-radius:10px;margin-top:10px}
 <div class="card">
   <h2>券（演示）</h2>
   <div id="coupons" class="row" style="flex-wrap:wrap;gap:8px"></div>
-  <div class="legend">真实券为账户私有、无法内置。此处用演示券展示「用券」这一机制；
-    在 WorkBuddy 中运行 Skill 时，券来自 MCP 的 <code>query-my-coupons</code> / <code>auto-bind-coupons</code>。</div>
+  <div class="legend">选一张券，结算时自动抵扣——用得好省钱率更高。这里用演示券；
+    在 WorkBuddy 里说一句「我今天有什么券」，取到的就是账户里的真实券。</div>
 </div>
 
 <div class="card">

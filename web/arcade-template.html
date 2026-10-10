@@ -3,13 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="format-detection" content="telephone=no,email=no,address=no">
+<meta name="x5-orientation" content="portrait">
+<meta name="screen-orientation" content="portrait">
 <title>麦门开饭 McChow —— 出餐口大作战</title>
 <style>
   :root{
     --bg:#0a0710; --panel:rgba(24,15,30,.95); --line:#3d2b4a;
     --gold:#ffcc33; --red:#ff3b30; --txt:#f4eeff; --dim:#aa9cbe;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg);
     color:var(--txt);font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
   /* 高度用 dvh 兜底地址栏：老内核不认 dvh 会退回上一行 100vh */
@@ -19,7 +23,7 @@
     justify-content:space-between;gap:10px;pointer-events:none;font-size:13px;line-height:1.35}
   .box{background:rgba(12,7,18,.62);border:1px solid rgba(255,255,255,.09);border-radius:10px;
     padding:6px 10px;backdrop-filter:blur(2px)}
-  .lab{color:var(--dim);font-size:10px;letter-spacing:.08em}
+  .lab{color:var(--dim);font-size:11px;letter-spacing:.08em}
   .val{font-weight:800;font-variant-numeric:tabular-nums;font-size:17px}
   #combo{color:var(--gold);font-size:12px;font-weight:800;min-height:15px}
   /* 胃容量条：吃撑是唯一的结束条件，所以它是全场最重要的一根条 */
@@ -28,7 +32,7 @@
     border:1px solid rgba(255,255,255,.12);overflow:hidden}
   #gutFill{height:100%;width:0%;border-radius:6px;
     background:linear-gradient(90deg,#7ee787,#ffd93d);transition:width .16s linear}
-  #gutTip{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-bottom:4px}
+  #gutTip{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:4px}
 
   #hint{position:fixed;left:0;right:0;bottom:46px;text-align:center;font-size:11px;
     color:var(--dim);pointer-events:none}
@@ -58,6 +62,11 @@
     background:#2c2039;color:var(--txt);cursor:pointer;flex:1 1 auto}
   button.primary{background:linear-gradient(180deg,#ffd24d,#ff9f1c);color:#2a1a00;border-color:#ffd98a}
   button.small{flex:0 0 auto;padding:9px 12px;font-size:12px}
+  /* HUD 里的暂停按钮：手机（微信）没有键盘，没它就没法暂停/静音/收工结算 */
+  .hudbtn{flex:0 0 auto;pointer-events:auto;background:rgba(255,255,255,.1);
+    border:1px solid rgba(255,255,255,.18);color:#efe6ff;font-size:12px;font-weight:700;
+    padding:8px 12px;border-radius:9px;cursor:pointer;font-family:inherit}
+  .hudbtn:active{transform:translateY(1px)}
   button:active{transform:translateY(1px)}
   #reportImg{display:block;width:100%;border-radius:12px;border:1px solid var(--line);margin-top:10px}
   /* 当日真实活动卡（flex：老内核不支持 grid，别改） */
@@ -66,9 +75,9 @@
   #posterBox.off{display:none}
   #posterImg{width:88px;height:88px;object-fit:cover;border-radius:9px;flex:0 0 auto;background:#241a2e}
   #posterTxt{flex:1 1 auto;min-width:0}
-  .pt-lab{color:var(--gold);font-size:10px;letter-spacing:.08em;margin-bottom:3px}
+  .pt-lab{color:var(--gold);font-size:11px;letter-spacing:.08em;margin-bottom:3px}
   .pt-t{font-size:12.5px;font-weight:800;line-height:1.4;margin-bottom:4px}
-  .pt-d{font-size:10.5px;color:var(--dim);line-height:1.5;max-height:32px;overflow:hidden}
+  .pt-d{font-size:11px;color:var(--dim);line-height:1.5;max-height:32px;overflow:hidden}
   .note{color:var(--dim);font-size:11px;margin-top:8px;line-height:1.6}
   .kbd{display:inline-block;padding:1px 6px;border-radius:5px;background:#332545;
     border:1px solid #4a3560;font-size:11px}
@@ -105,10 +114,13 @@
     <div class="val" id="score">0</div>
     <div id="combo"></div>
   </div>
-  <div class="box" style="text-align:right">
-    <div class="lab">已吃</div>
-    <div class="val" id="eaten">0</div>
-    <div class="lab" style="margin-top:3px">热量 <b id="kcal">0</b> kcal</div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+    <div class="box" style="text-align:right">
+      <div class="lab">已吃</div>
+      <div class="val" id="eaten">0</div>
+      <div class="lab" style="margin-top:3px">热量 <b id="kcal">0</b> kcal</div>
+    </div>
+    <button class="hudbtn" id="btnPauseHud" type="button">⏸ 暂停</button>
   </div>
 </div>
 
@@ -146,7 +158,7 @@
       <button class="small" id="btnSeed">换种子</button>
     </div>
     <div class="note" id="seedNote"></div>
-    <div class="note">键盘 <span class="kbd">WASD</span> / <span class="kbd">方向键</span> 移动 ·
+    <div class="note" id="startNote">键盘 <span class="kbd">WASD</span> / <span class="kbd">方向键</span> 移动 ·
       手机按住屏幕拖动 · <span class="kbd">P</span> 暂停 · <span class="kbd">M</span> 静音 · <span class="kbd">R</span> 重开</div>
   </div>
 </div>
@@ -159,6 +171,7 @@
     <div class="btns">
       <button class="primary" id="btnResume">继续吃</button>
       <button id="btnQuit">收工结算</button>
+      <button class="small" id="btnMute">静音</button>
     </div>
   </div>
 </div>
@@ -1508,6 +1521,11 @@ function boot() {
     if (br) br.onclick = () => togglePause(false);
     const bq = $("btnQuit");
     if (bq) bq.onclick = () => { if (!S) return; hide("ovPause"); S.paused = false; endGame("quit"); };
+    // 手机（含微信）没有键盘：HUD 的「⏸」进入暂停面板；面板里给触摸用户一个静音开关
+    const bph = $("btnPauseHud");
+    if (bph) bph.onclick = () => togglePause(true);
+    const bm = $("btnMute");
+    if (bm) bm.onclick = () => { if (!S) return; S.muted = !S.muted; bm.textContent = S.muted ? "声音已关" : "静音"; };
     // 「再来一局」= 今日同题再来（每日挑战要能反复刷同一题比分）
     const ba = $("btnAgain");
     if (ba) ba.onclick = () => beginGame(DAY.seed);
@@ -1525,6 +1543,11 @@ function boot() {
         ("ontouchstart" in window));
     } catch (_) {}
     if (hintEl) hintEl.textContent = coarse ? "按住屏幕拖动去吃 · 别吃撑" : "WASD / 方向键（或拖动屏幕）· 别吃撑";
+    if (coarse) {
+      // 触屏场景：开始卡的操作行换成触摸说明（键盘键位对手机用户是干扰，P/M/R 手机上根本按不到）
+      const sn = $("startNote");
+      if (sn) sn.innerHTML = "手机玩法：按住屏幕<b>拖动</b>去吃 · 右上「⏸ 暂停」· 别吃撑";
+    }
 
     bindInput();
     loop();
