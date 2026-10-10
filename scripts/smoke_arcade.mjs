@@ -280,6 +280,7 @@ function makeBootCtx(winExtra, opts) {
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
       toDataURL: () => "data:image/png;base64,AAAA",
       click: () => { el._clicked = true; },
+      select: () => {},                      // 复制回退：textarea.select()
       appendChild: () => {},
       addEventListener(t, fn) { (el._h[t] = el._h[t] || []).push(fn); }
     };
@@ -315,7 +316,12 @@ function makeBootCtx(winExtra, opts) {
 
   const ctx = vm.createContext({
     console,
-    document: { getElementById: mkEl, createElement: () => mkEl("__new__" + (seq++)), addEventListener: () => {} },
+    // execCommand 桩：老 WebView（微信 X5）的复制回退路径，没有它点「复制」必失败
+    document: {
+      getElementById: mkEl, createElement: () => mkEl("__new__" + (seq++)),
+      addEventListener: () => {}, execCommand: () => true,
+      body: { appendChild: () => {}, removeChild: () => {} }   // 复制回退要往 body 挂 textarea
+    },
     window: win,
     Image: FakeImage,
     requestAnimationFrame: () => 0,
@@ -568,6 +574,31 @@ console.log("\n14) 套餐出料：一件件间隔掉 / 集齐奖励 / 今日优�
     "今日优惠里挂的是真券图（内联 webp，离线也看得见）");
   ok((bd.els.get("endStats").innerHTML || "").includes("集齐套餐"), "结算统计里有「集齐套餐」行");
   ok((bd.els.get("reportImg").src || "").startsWith("data:image/png"), "战报图照旧生成（含今日优惠区）");
+}
+
+console.log("\n15) 传播出口：战报二维码 / 复制今日挑战 / Star 引导");
+{
+  ok(/^data:image\/png;base64,/.test(T.REPO_QR || ""), "仓库二维码已内联（data URL ⇒ 离线可见、无 CORS）");
+  ok(/github\.com\/langlangagowith\/mcd-rogue/.test(T.REPO_URL || ""), "仓库地址正确（战报文字与按钮都用它）");
+  ok(/^https:\/\/.+\?d=$/.test(T.SHARE_BASE + "?d="), "分享基址是线上可玩页（不是本地 file://）");
+
+  const bs = makeBootCtx();
+  bs.T.reset(20261010, { autoStart: true });
+  const before = bs.rec.drawImage;
+  bs.T.endGame("stuffed");
+  ok(bs.rec.drawImage > before,
+    `战报走了二维码绘制路径（drawImage +${bs.rec.drawImage - before} 次 ⇒ 晒出去的图自带入口）`);
+  ok((bs.els.get("starLink").href || "").includes("github.com/langlangagowith/mcd-rogue"),
+    "结算页 Star 引导指向仓库（短视频来的玩家不看 README，游戏里得直说一次）");
+
+  // 「复制今日挑战」：老 WebView 走 execCommand 回退（上面给桩加了 execCommand）
+  let threw = false;
+  try { bs.els.get("btnShare").onclick(); } catch (e) { threw = true; }
+  ok(!threw, "点「复制今日挑战」不抛错（老内核也不会白屏）");
+  ok(/已复制/.test(bs.els.get("toast").textContent || ""),
+    `复制成功有反馈：${bs.els.get("toast").textContent.slice(0, 20)}`);
+  const u = bs.T.shareUrl();
+  ok(/\?d=\d{8}$/.test(u) && u.startsWith("https://"), `分享链接带 8 位日期种子：${u.slice(-24)}`);
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);

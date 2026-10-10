@@ -33,6 +33,9 @@ SPRITES_DIR = os.path.join(ROOT, "assets", "sprites")
 REALTIME = os.path.join(ROOT, "data", "realtime.json")
 COUPON_DIR = os.path.join(ROOT, "assets", "coupons")
 POSTER_DIR = os.path.join(ROOT, "assets", "poster")
+QR_REPO = os.path.join(ROOT, "assets", "qr", "repo.png")   # 仓库二维码（战报/结算页的传播出口）
+REPO_URL = "https://github.com/langlangagowith/mcd-rogue"
+SHARE_BASE = "https://langlangagowith.github.io/mcd-rogue/arcade.html"
 OUT = os.path.join(ROOT, "docs", "arcade.html")
 SIZE_BUDGET_KB = 350    # 弱网口径 60KB/s ⇒ 350KB ≈ 6s；超了打印警告
 
@@ -227,7 +230,7 @@ def realtime_payload() -> tuple[list[dict], dict | None]:
 def main() -> int:
     tpl = open(TPL, encoding="utf-8").read()
     for ph in ("/*__FOODS__*/", "/*__SPRITES__*/", "/*__COUPONS__*/", "/*__POSTER__*/",
-               "/*__COMBOS__*/", "/*__DEALS__*/"):
+               "/*__COMBOS__*/", "/*__DEALS__*/", "/*__REPOQR__*/", "/*__REPOURL__*/", "/*__SHAREBASE__*/"):
         if ph not in tpl:
             print(f"❌ 模板里找不到占位符 {ph}")
             return 1
@@ -278,6 +281,12 @@ def main() -> int:
     poster_json = json.dumps(poster, ensure_ascii=False, separators=(",", ":"))
     combos_json = json.dumps(combos, ensure_ascii=False, separators=(",", ":"))
     deals_json = json.dumps(deals, ensure_ascii=False, separators=(",", ":"))
+    # 仓库二维码：战报/结算页的传播出口（玩家晒战报 = 替我们带流量）
+    repo_qr = ""
+    if os.path.isfile(QR_REPO):
+        repo_qr = "data:image/png;base64," + base64.b64encode(open(QR_REPO, "rb").read()).decode("ascii")
+    else:
+        print(f"⚠ 缺 {QR_REPO} ⇒ 战报不画二维码（先跑 _probe/make_qr.mjs 生成）")
     # 与 build_web / build_neon 同款：转义 <，避免提前闭合 script 标签
     foods_json = foods_json.replace("<", "\\u003c")
     sprites_json = sprites_json.replace("<", "\\u003c")
@@ -292,7 +301,10 @@ def main() -> int:
             .replace("/*__COUPONS__*/", coupons_json)
             .replace("/*__POSTER__*/", poster_json)
             .replace("/*__COMBOS__*/", combos_json)
-            .replace("/*__DEALS__*/", deals_json))
+            .replace("/*__DEALS__*/", deals_json)
+            .replace("/*__REPOQR__*/", json.dumps(repo_qr))
+            .replace("/*__REPOURL__*/", json.dumps(REPO_URL))
+            .replace("/*__SHAREBASE__*/", json.dumps(SHARE_BASE)))
     if not html.endswith("\n"):
         html += "\n"
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:

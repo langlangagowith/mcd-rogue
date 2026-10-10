@@ -92,6 +92,11 @@
     border:1px solid rgba(255,210,77,.5);display:block}
   #dealCoupons .cp div{font-size:10px;color:var(--dim);line-height:1.3;margin-top:4px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* 结算页的 Star 引导：一行，不抢戏（头部项目 README 都不写"求星"，但短视频来的
+     普通玩家不看 README ⇒ 游戏里得直说一次） */
+  .starlink{display:block;text-align:center;margin-top:12px;font-size:12px;font-weight:700;
+    color:var(--gold);text-decoration:none;border:1px dashed rgba(255,204,51,.45);
+    border-radius:10px;padding:9px 10px}
   .note{color:var(--dim);font-size:11px;margin-top:8px;line-height:1.6}
   .kbd{display:inline-block;padding:1px 6px;border-radius:5px;background:#332545;
     border:1px solid #4a3560;font-size:11px}
@@ -210,8 +215,12 @@
     <div class="btns">
       <button class="primary" id="btnAgain">再来一局</button>
       <button class="small" id="btnSave">保存战报</button>
+      <button class="small" id="btnShare">🔗 复制今日挑战</button>
     </div>
     <div class="note">手机上长按上图即可保存；电脑点「保存战报」下载。</div>
+    <!-- 传播出口：抖音/小红书过来的玩家大多不知道 Star 是什么 ⇒ 直说，但不刷、不诱导互刷 -->
+    <a class="starlink" id="starLink" href="https://github.com/langlangagowith/mcd-rogue"
+       target="_blank" rel="noopener">⭐ 觉得好玩？给个 Star 支持一下（参赛作品 · 10/26 定榜）</a>
   </div>
 </div>
 
@@ -238,6 +247,11 @@ const SPRITES = /*__SPRITES__*/;
 const COMBOS = /*__COMBOS__*/;
 /* 今日优惠：当日活动文案里的真实优惠价（打完这局解锁，见结算页与战报）。 */
 const DEALS = /*__DEALS__*/;
+/* 传播出口：仓库二维码（战报里画）、仓库地址、今日挑战分享链接基址。
+   玩家晒战报/发挑战链接 = 替我们把作品递给下一个人——这是唯一的自然分发路径。 */
+const REPO_QR = /*__REPOQR__*/;
+const REPO_URL = /*__REPOURL__*/;
+const SHARE_BASE = /*__SHAREBASE__*/;
 /* 真实感层：麦当劳官方在售券图与当日活动海报（均由 MCP 拉取后压缩内联，
    运行时不碰网络 ⇒ 保住"离线可玩 / 零依赖"）。券图进 canvas 也不存在 CORS 问题。 */
 const COUPONS = /*__COUPONS__*/;
@@ -854,6 +868,8 @@ const sprites = {};
 let spritesReady = false;
 /** 真实券图（COUPONS 顺序一致）：data URL ⇒ 无 CORS、可进战报 canvas。 */
 const couponImgs = [];
+/** 仓库二维码（战报底部的传播出口）。 */
+let repoQrImg = null;
 
 function loadImg(url, img) {
   if (typeof Image === "undefined") return false;
@@ -884,6 +900,11 @@ function loadSprites() {
     const img = { complete: false, w: 0, h: 0, el: null };
     couponImgs[i] = img;
     loadImg(COUPONS[i].img, img);
+  }
+  if (REPO_QR) {
+    const img = { complete: false, w: 0, h: 0, el: null };
+    repoQrImg = img;
+    loadImg(REPO_QR, img);
   }
 }
 
@@ -1381,7 +1402,7 @@ let reportURL = "";
 function drawReport() {
   if (typeof document === "undefined" || !document.createElement) return;
   const c = document.createElement("canvas");
-  const H = 1330;               // 1080 起 +100（本局真券）+150（今日优惠区）
+  const H = 1490;               // 1080 起 +100（真券）+150（今日优惠）+160（二维码传播区）
   c.width = 720; c.height = H;
   const g = c.getContext("2d");
   if (!g) return;
@@ -1488,21 +1509,76 @@ function drawReport() {
 
   g.textAlign = "center";
   g.fillStyle = "#6f6480"; g.font = "15px system-ui,sans-serif";
-  g.fillText("数据来自麦当劳官方 MCP · 热量与价格均为真实值", 360, H - 130);
+  g.fillText("数据来自麦当劳官方 MCP · 热量与价格均为真实值", 360, 1200);
   g.fillText("最长连击 x" + S.bestCombo + " · 腻了 " + S.sickTimes + " 次 · 集齐套餐 "
-    + S.mealsDone + " 份", 360, H - 102);
+    + S.mealsDone + " 份", 360, 1228);
   if (S.daily && S.dayTag) {
     g.fillStyle = "#ffd24d";
-    g.fillText("今日挑战 #" + S.dayTag + " · 同一天所有人同一局 · ?d=" + S.dayTag + " 可回玩这一天", 360, H - 74);
+    g.fillText("今日挑战 #" + S.dayTag + " · 同一天所有人同一局 · ?d=" + S.dayTag + " 可回玩这一天", 360, 1256);
   }
+
+  /* --- 传播出口：战报被晒出去时，这张图要能自己带人回来 --- */
+  g.fillStyle = "rgba(255,255,255,.05)";
+  roundRect(g, 50, 1290, 620, 130, 14); g.fill();
+  const qx = 66, qy = 1300, qs = 110;
+  g.fillStyle = "#fff";
+  roundRect(g, qx - 4, qy - 4, qs + 8, qs + 8, 8); g.fill();
+  if (repoQrImg && repoQrImg.complete && repoQrImg.el) g.drawImage(repoQrImg.el, qx, qy, qs, qs);
+  else {
+    g.fillStyle = "#241a2e"; roundRect(g, qx, qy, qs, qs, 6); g.fill();
+    g.fillStyle = "#ffd24d"; g.font = "bold 20px system-ui,sans-serif";
+    g.fillText("QR", qx + qs / 2, qy + qs / 2);
+  }
+  g.textAlign = "left";
+  g.fillStyle = "#efe7ff"; g.font = "bold 17px system-ui,sans-serif";
+  g.fillText("扫码来玩 · 看源码", 198, 1322);
+  g.fillStyle = "#ffd24d"; g.font = "15px system-ui,sans-serif";
+  g.fillText("觉得好玩的话，右上角点个 ⭐ —— 参赛作品 · 10/26 定榜", 198, 1352);
+  g.fillStyle = "#a99bbd"; g.font = "14px system-ui,sans-serif";
+  g.fillText(REPO_URL || "github.com/langlangagowith/mcd-rogue", 198, 1378);
+
+  g.textAlign = "center";
   g.fillStyle = "#4b4159"; g.font = "14px system-ui,sans-serif";
-  g.fillText("麦门开饭 McChow · 麦当劳程序员创意开发大赛参赛作品", 360, H - 44);
+  g.fillText("麦门开饭 McChow · 麦当劳程序员创意开发大赛参赛作品", 360, H - 34);
 
   const img = $("reportImg");
   try {
     reportURL = c.toDataURL("image/png");
     if (img) img.src = reportURL;
   } catch (e) { reportURL = ""; }
+}
+
+/** 复制文本：优先 clipboard API，老 WebView（微信 X5）回退 execCommand。 */
+function copyText(t) {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t);
+      return true;
+    }
+  } catch (_) { /* 非安全上下文/权限被拒 ⇒ 走回退 */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = t;
+    ta.style.position = "fixed"; ta.style.left = "-9999px"; ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return !!ok;
+  } catch (_) { return false; }
+}
+
+/** 今日挑战链接：同一天所有人同题，发给朋友就能同题比分数（这是最容易传开的一句）。 */
+function shareUrl() {
+  const tag = (S && S.daily && S.dayTag) ? S.dayTag : dayTagOf(new Date());
+  return SHARE_BASE + "?d=" + tag;
+}
+
+function shareDaily() {
+  const url = shareUrl();
+  const txt = "麦门开饭 · 今日挑战 #" + ((S && S.daily && S.dayTag) ? S.dayTag : dayTagOf(new Date()))
+    + "\n同一天全世界同一局，来比比谁吃得久：\n" + url;
+  toast(copyText(txt) ? "已复制！发给朋友同题比分数" : "复制失败，长按地址栏手动复制");
 }
 
 function saveReport() {
@@ -1725,6 +1801,10 @@ function boot() {
     if (ba) ba.onclick = () => beginGame(DAY.seed);
     const bsave = $("btnSave");
     if (bsave) bsave.onclick = () => saveReport();
+    const bshare = $("btnShare");
+    if (bshare) bshare.onclick = () => shareDaily();
+    const sl = $("starLink");
+    if (sl && REPO_URL) sl.href = REPO_URL;
 
     const hintEl = $("hint");
     // ⚠ 别用 navigator.maxTouchPoints 判"是否触屏"：Windows 上的浏览器会报一个正数
@@ -1761,6 +1841,7 @@ function boot() {
 const API = {
   VERSION, CFG, FOODS, SPRITES, CAT_COLOR, RANKS,
   COMBOS, DEALS, COUPONS, POSTER, couponImgs, DAY, isDailySeed, dayTagOf, seedNoteText,
+  REPO_QR, REPO_URL, SHARE_BASE, shareUrl,
   keys, pointer,
   reset: (seed, opt) => { if (opt && opt.autoStart) beginGame(seed); else startGame(seed); return S; },
   start: () => { S.started = true; },
