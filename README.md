@@ -7,6 +7,8 @@
 用你附近门店**真实的菜单、真实的券、真实的核价**，
 打完一日三餐，结算出一张可以晒的战报。
 
+![三个玩法：三回合点餐 · 麦门幸存者 · 出餐口大作战](assets/readme/banner.jpg)
+
 麦当劳程序员创意开发大赛参赛作品 · 非麦当劳官方产品
 
 </div>
@@ -47,7 +49,12 @@
 > 在线玩：**https://langlangagowith.github.io/mcd-rogue/** ·
 > [/neon.html](https://langlangagowith.github.io/mcd-rogue/neon.html) ·
 > [/arcade.html](https://langlangagowith.github.io/mcd-rogue/arcade.html)
->
+
+<p align="center">
+  <img src="assets/readme/arcade.gif" width="512"
+       alt="出餐口大作战：出料口倒真实菜单，跑去吃；真券从天而降，抢到就是双倍分">
+</p>
+
 > 🗓 **每日挑战**：两个小游戏都是「种子 = 今天的日期」——同一天所有人玩到的是同一局
 > （同出料、同券、同怪），把链接 `?d=YYYYMMDD` 发给朋友就能同题比分数。
 
