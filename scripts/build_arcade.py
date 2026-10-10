@@ -2,8 +2,12 @@
 # -*- coding: utf-8 -*-
 """把真实营养数据、12 张食物立绘与「真实感层」素材注入 web/arcade-template.html，产出单文件 docs/arcade.html。
 
-麦门开饭 · 出餐口大作战：出料口倒真实菜单、玩家跑去吃、吃撑结束。
+麦门开饭 · 出餐口大作战：出料口**一份一份倒真实套餐**（套餐里的食物一件件间隔落下）、
+玩家跑去吃、吃撑结束；打完解锁**今日优惠**。
 - 食物清单与热量/价格：麦当劳官方 MCP（data/cardpool.json）。
+- 套餐拆件：data/snapshot.json 里的真实套餐（*三件套 / *套餐）→ 主食 + 常规配餐，
+  用「套餐价 ≤ 单点合计」做机械校验（详见 combos_from_snapshot 的 docstring）。
+- 今日优惠：data/cardpool.json 当日活动文案里抠出的真实优惠价 + 真实在售券（realtime.json）。
 - 立绘：assets/raw（商汤出图）→ scripts/prepare_sprites.py 抠底归一化 → assets/sprites（256px **webp**）。
 - 真实感层：真实在售券图（assets/coupons）+ 当日活动海报（assets/poster），
   由 scripts/fetch_realtime.py 拉取、scripts/prepare_realtime.py 压缩。
@@ -19,10 +23,12 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TPL = os.path.join(ROOT, "web", "arcade-template.html")
 POOL = os.path.join(ROOT, "data", "cardpool.json")
+SNAP = os.path.join(ROOT, "data", "snapshot.json")
 SPRITES_DIR = os.path.join(ROOT, "assets", "sprites")
 REALTIME = os.path.join(ROOT, "data", "realtime.json")
 COUPON_DIR = os.path.join(ROOT, "assets", "coupons")
@@ -100,6 +106,90 @@ def foods_from_cardpool(pool: dict) -> list[dict]:
     return sorted(seen.values(), key=lambda x: (x["k"], x["n"]))
 
 
+# ------------------------------- 套餐拆件 -------------------------------
+#   MCP 的菜单只给「XX三件套 / XX套餐」这一条记录（名字 + 套餐价），**不返回组成明细**。
+#   所以组成是派生出来的，但派生必须能被真实价格证伪：
+#
+#       拆件 = 主食（套餐名去掉后缀） + 该时段的常规配餐
+#       校验 = 套餐价 ≤ 单点合计（麦当劳的套餐不会比一件件单点贵）
+#
+#   「主食名去后缀后必须命中营养表」+「套餐价 ≤ 单点合计」两道门一过，
+#   剩下的差额就是这份套餐**真实省下的钱**（实测 0~3 元）⇒ 顺手变成游戏里的套餐奖励。
+#   任一道门不过的套餐直接剔除——宁可少几份，也不编造组成。
+# ------------------------------------------------------------------------
+
+COMBO_SUFFIX = re.compile(r"(四件套|三件套|两件套|套餐|单人餐)$")
+# 常规配餐：早餐 = 脆薯饼 + 鲜萃咖啡；正餐 = 中薯条 + 中可乐。
+# 这是麦当劳套餐的标准搭法，且被上面的价格校验兜着（搭错 ⇒ 单点合计对不上 ⇒ 剔除）。
+COMBO_SIDES = {
+    "breakfast": ["脆薯饼", "鲜萃咖啡"],
+    "lunch": ["薯条", "可乐"],
+    "dinner": ["薯条", "可乐"],
+}
+
+
+def combos_from_snapshot(snap: dict, foods: list[dict]) -> list[dict]:
+    """真实套餐 → 拆成若干件（主食 + 配餐），带套餐价、单点合计与省下的钱。"""
+    by_name = {f["n"]: f for f in foods}
+    out: dict[str, dict] = {}
+    for part, sides in COMBO_SIDES.items():
+        menu = ((snap.get("menus") or {}).get(part) or {}).get("meals") or {}
+        for meal in menu.values():
+            name = (meal.get("name") or "").strip()
+            if not name or not COMBO_SUFFIX.search(name) or name in out:
+                continue
+            main_name = COMBO_SUFFIX.sub("", name)
+            parts = [by_name.get(main_name)] + [by_name.get(s) for s in sides]
+            if any(p is None for p in parts):
+                continue                                  # 主食没营养数据 ⇒ 不敢拆
+            price = meal.get("price")
+            if not isinstance(price, (int, float)):
+                continue
+            single = round(sum(p["p"] for p in parts), 2)
+            save = round(single - float(price), 2)
+            if save < -0.01 or save > 8:                  # 套餐居然比单点贵 ⇒ 拆件猜错了
+                continue
+            out[name] = {
+                "n": name,
+                "p": round(float(price), 2),              # 套餐价（真实）
+                "k": sum(p["k"] for p in parts),          # 整份热量（由官方营养加总）
+                "save": save,                             # 单点合计 − 套餐价（真实优惠）
+                "part": part,
+                "items": [{ "n": p["n"], "p": p["p"], "k": p["k"], "c": p["c"], "s": p["s"] }
+                          for p in parts],
+            }
+    return sorted(out.values(), key=lambda x: (x["k"], x["n"]))
+
+
+def deals_from_cardpool(pool: dict, limit: int = 4) -> list[dict]:
+    """今日优惠：从当日活动文案里抠真实价（「26.9 元起」「9.9 元」），配活动标题。
+
+    MCP 的 query-campaigns 只给活动正文，优惠价就写在正文里 ⇒ 正则抠出来即可，
+    抠不到价的活动（纯上新 / 抽奖）不要，免得结算页给出一句没有价的「优惠」。
+    """
+    price_rx = re.compile(r"(\d+(?:\.\d+)?)\s*元(起)?")
+    out: list[dict] = []
+    seen: set[str] = set()
+    for ev in pool.get("events") or []:
+        date = ev.get("date") or ""
+        if "今日" not in date:                            # 只取当天（fetch 阶段已标好「今日」）
+            continue
+        title = (ev.get("title") or "").strip()
+        if not title or title in seen:
+            continue
+        text = ev.get("text") or ""
+        m = price_rx.search(text)
+        if not m:
+            continue
+        if m.start() > 0 and text[m.start() - 1] == "加":
+            continue                                      # 「加39.9元得」是加价购，不是优惠
+        seen.add(title)
+        out.append({"t": title, "v": f"{m.group(1)}元{('起' if m.group(2) else '')}"})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def realtime_payload() -> tuple[list[dict], dict | None]:
     """真实感层：券图（可缺，缺了游戏退回自绘纸片）与当日活动海报（可缺）。"""
     coupons: list[dict] = []
@@ -136,7 +226,8 @@ def realtime_payload() -> tuple[list[dict], dict | None]:
 
 def main() -> int:
     tpl = open(TPL, encoding="utf-8").read()
-    for ph in ("/*__FOODS__*/", "/*__SPRITES__*/", "/*__COUPONS__*/", "/*__POSTER__*/"):
+    for ph in ("/*__FOODS__*/", "/*__SPRITES__*/", "/*__COUPONS__*/", "/*__POSTER__*/",
+               "/*__COMBOS__*/", "/*__DEALS__*/"):
         if ph not in tpl:
             print(f"❌ 模板里找不到占位符 {ph}")
             return 1
@@ -169,21 +260,39 @@ def main() -> int:
 
     coupons, poster = realtime_payload()
 
+    combos: list[dict] = []
+    if os.path.isfile(SNAP):
+        combos = combos_from_snapshot(json.load(open(SNAP, encoding="utf-8")), foods)
+    else:
+        print(f"⚠ 没有 {SNAP} ⇒ 出料退回单件模式（先跑 fetch_snapshot.py）")
+    if len(combos) < 6:
+        print(f"❌ 可拆件的真实套餐过少（{len(combos)} 份），套餐出料不成立")
+        return 1
+    deals = deals_from_cardpool(pool)
+    if not deals:
+        print("⚠ 今日活动里没抠到带价的优惠 ⇒ 结算页「今日优惠」只显示真实券")
+
     foods_json = json.dumps(foods, ensure_ascii=False, separators=(",", ":"))
     sprites_json = json.dumps(sprites, separators=(",", ":"))
     coupons_json = json.dumps(coupons, ensure_ascii=False, separators=(",", ":"))
     poster_json = json.dumps(poster, ensure_ascii=False, separators=(",", ":"))
+    combos_json = json.dumps(combos, ensure_ascii=False, separators=(",", ":"))
+    deals_json = json.dumps(deals, ensure_ascii=False, separators=(",", ":"))
     # 与 build_web / build_neon 同款：转义 <，避免提前闭合 script 标签
     foods_json = foods_json.replace("<", "\\u003c")
     sprites_json = sprites_json.replace("<", "\\u003c")
     coupons_json = coupons_json.replace("<", "\\u003c")
     poster_json = poster_json.replace("<", "\\u003c")
+    combos_json = combos_json.replace("<", "\\u003c")
+    deals_json = deals_json.replace("<", "\\u003c")
 
     html = (tpl
             .replace("/*__FOODS__*/", foods_json)
             .replace("/*__SPRITES__*/", sprites_json)
             .replace("/*__COUPONS__*/", coupons_json)
-            .replace("/*__POSTER__*/", poster_json))
+            .replace("/*__POSTER__*/", poster_json)
+            .replace("/*__COMBOS__*/", combos_json)
+            .replace("/*__DEALS__*/", deals_json))
     if not html.endswith("\n"):
         html += "\n"
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
@@ -196,6 +305,9 @@ def main() -> int:
     print(f"✅ 已写出 {OUT}  ({kb:.1f} KB)")
     print(f"   注入餐品 {len(foods)} 种 · 立绘 {len(SLUGS)} 张 · 真实券 {len(coupons)} 张"
           f" · 活动海报 {'有' if poster else '无'}")
+    print(f"   真实套餐 {len(combos)} 份（一份分 {len(combos[0]['items'])} 件间隔掉落）"
+          f" · 热量 {min(c['k'] for c in combos)}~{max(c['k'] for c in combos)} kcal"
+          f" · 单份最省 ¥{max(c['save'] for c in combos)} · 今日优惠 {len(deals)} 条")
     print("   立绘用量：" + " / ".join(f"{s}×{dist[s]}" for s in SLUGS))
     kmin = min(f["k"] for f in foods)
     kmax = max(f["k"] for f in foods)

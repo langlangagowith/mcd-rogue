@@ -148,11 +148,12 @@ console.log("\n6) 优惠券：清胃 + 双倍窗口");
 console.log("\n7) 吃撑结束 / 主动收工");
 {
   T.reset(13, { autoStart: true });
-  foodAt("培根安格斯厚牛堡"); foodAt("培根安格斯厚牛堡");   // 一帧内两口重堡：71+71 > 100
+  // 胃容量 = 一天的量（2400kcal）；一帧内塞 4 个安格斯厚牛堡：4×71 = 284 > 240
+  for (let i = 0; i < 4; i++) foodAt("培根安格斯厚牛堡");
   T.update(DT);
   ok(S().over === true, "吃撑后本局结束");
   ok(S().endReason === "stuffed", "结束原因为「吃撑」");
-  ok(S().fullness >= 100, `胃容量已超线：${S().fullness}`);
+  ok(S().fullness >= T.CFG.FULLNESS_MAX, `胃容量已超线：${S().fullness} ≥ ${T.CFG.FULLNESS_MAX}`);
   T.update(DT);
   ok(S().time < 0.05, "结束后世界冻结（不再推进）");
 
@@ -205,7 +206,7 @@ console.log("\n8) 长跑不变量（躲避机器人 · 质量下限）");
       if (!Number.isFinite(st.player.x) || !Number.isFinite(st.player.y)) posOk = false;
       if (st.time < prevT) timeMono = false;
       prevT = st.time;
-      if (st.fullness > 140) fullOk = false;
+      if (st.fullness > T.CFG.FULLNESS_MAX + 40) fullOk = false;
       if (st.over) break;
     }
     K.left = K.right = K.up = K.down = false;
@@ -215,7 +216,7 @@ console.log("\n8) 长跑不变量（躲避机器人 · 质量下限）");
   const inv = runDodge(424242, 90);
   ok(inv.posOk, "坐标始终有限（无 NaN 穿透）");
   ok(inv.timeMono, "时间单调不减");
-  ok(inv.fullOk, "胃容量不超上限 140");
+  ok(inv.fullOk, `胃容量不超上限 ${T.CFG.FULLNESS_MAX + 40}`);
   ok(inv.maxItems <= 80, `在屏食物数有界：峰值 ${inv.maxItems} ≤ 80`);
 
   // 躲避机器人不是产品的一部分，只设质量下限。单 seed 存活随真实菜单 kcal 分布漂移
@@ -307,8 +308,10 @@ function makeBootCtx(winExtra, opts) {
 
   // HTML 里本来就存在的元素先建出来：桩不解析 HTML，缺了会让"元素应被填充"类断言
   // 在负向控制下直接 TypeError 而不是变红（假绿比崩溃更危险）。
-  for (const id of ["posterBox", "posterImg", "posterTitle", "posterDesc", "posterLab", "btnFree"]) mkEl(id);
+  for (const id of ["posterBox", "posterImg", "posterTitle", "posterDesc", "posterLab", "btnFree",
+                    "dealBox", "dealList", "dealCoupons"]) mkEl(id);
   els.get("posterBox").className = "off";   // 与模板里的初始类一致（有数据才摘掉）
+  els.get("dealBox").classList.add("off");  // 今日优惠：打完一局才解锁（初始收起，与模板 class 一致）
 
   const ctx = vm.createContext({
     console,
@@ -468,6 +471,103 @@ console.log("\n13) 快赢三件套：真券图 / 活动海报 / 每日挑战");
   b3.els.get("btnFree").onclick();
   ok(b3.T.state().daily === false, "点「随便玩玩」⇒ 随机种子，退出每日挑战");
   ok(b3.els.get("btnStart").textContent.includes("今日"), `主按钮写着今日挑战：${b3.els.get("btnStart").textContent}`);
+}
+
+console.log("\n14) 套餐出料：一件件间隔掉 / 集齐奖励 / 今日优惠");
+{
+  /* --- 数据层：套餐拆件必须能被真实价格证伪（MCP 不给套餐明细 ⇒ 派生要可校验） --- */
+  ok(T.COMBOS.length >= 6, `真实套餐已注入 ${T.COMBOS.length} 份`);
+  ok(new Set(T.COMBOS.map((c) => c.n)).size === T.COMBOS.length, "套餐名不重复");
+  ok(T.COMBOS.every((c) => (c.items || []).length >= 2), "每份套餐至少拆出 2 件");
+  const foodsByName = new Map(T.FOODS.map((f) => [f.n, f]));
+  ok(T.COMBOS.every((c) => c.items.every((p) => {
+    const f = foodsByName.get(p.n);
+    return f && f.k === p.k && f.p === p.p && f.c === p.c;
+  })), "套餐每件都命中餐品表且热量/价格/品类逐项一致（不是另编一套数）");
+  ok(T.COMBOS.every((c) => {
+    const single = c.items.reduce((a, p) => a + p.p, 0);
+    return single - c.p >= -0.01 && single - c.p <= 8;      // 套餐价 ≤ 单点合计
+  }), "每份套餐价 ≤ 单点合计（麦当劳套餐不会比单点贵 ⇒ 拆件可信）");
+  ok(T.COMBOS.every((c) => c.k === c.items.reduce((a, p) => a + p.k, 0)),
+    "整份热量 = 各件热量之和（战报/集齐奖励都按这个数）");
+  const saves = T.COMBOS.map((c) => c.save);
+  ok(saves.every((v) => v >= 0) && Math.max(...saves) > 0,
+    `套餐真实省钱额非负且确有优惠（0~¥${Math.max(...saves)}）`);
+
+  /* --- 出料层：一份套餐的件间隔掉下来，不是整份一起倒 --- */
+  T.reset(20261010, { autoStart: true });
+  const seen = new Set(), spawns = [];
+  for (let i = 0; i < 60 * 25 && !S().over; i++) {
+    T.update(DT);
+    for (const it of S().items) {
+      if (seen.has(it) || it.coupon) continue;
+      seen.add(it);
+      spawns.push({ t: S().time, it });
+    }
+  }
+  ok(spawns.length >= 6, `25 秒内出料 ${spawns.length} 件（够判顺序与间隔）`);
+  ok(spawns.every((s) => s.it.meal && s.it.mealIdx >= 1), "每件食物都挂着它所属的那份套餐");
+
+  const byMeal = new Map();
+  for (const s of spawns) {
+    if (!byMeal.has(s.it.meal)) byMeal.set(s.it.meal, []);
+    byMeal.get(s.it.meal).push(s);
+  }
+  let orderOk = true, idxOk = true, minGap = Infinity;
+  for (const [meal, arr] of byMeal) {
+    const want = T.COMBOS[meal.i].items.map((p) => p.n).slice(0, arr.length);
+    if (arr.map((a) => a.it.f.n).join("|") !== want.join("|")) orderOk = false;
+    arr.forEach((a, k) => { if (a.it.mealIdx !== k + 1) idxOk = false; });
+    for (let k = 1; k < arr.length; k++) minGap = Math.min(minGap, arr[k].t - arr[k - 1].t);
+  }
+  ok(orderOk, "同一份套餐按「主食 → 配餐」的顺序一件件出（顺序与真实套餐一致）");
+  ok(idxOk, "mealIdx 与出餐次序一致（①/②/③ 进度条靠它）");
+  ok(minGap >= 0.3, `同份套餐相邻两件的时间差 ≥0.3s（实测最小 ${minGap.toFixed(2)}s ⇒ 真是间隔掉的，不是整份一起砸）`);
+  ok([...byMeal.values()].every((arr) => arr.length <= T.COMBOS[arr[0].it.meal.i].items.length),
+    "一份套餐不会掉出比它本身更多的件");
+
+  /* --- 集齐奖励：三件全吃到才算，漏一件不算 --- */
+  T.reset(77, { autoStart: true });
+  const m0 = T.startMeal(0);
+  const score0 = S().score;
+  for (const p of T.COMBOS[0].items) {
+    const it = T.spawnAt(p, S().player.x, S().player.y);
+    it.meal = m0;
+    T.update(DT);
+  }
+  ok(S().mealsDone === 1, `一份套餐三件全吃到 ⇒ 集齐 ${S().mealsDone} 份`);
+  ok(S().score - score0 > 0, `集齐给了额外分（+${S().score - score0}）`);
+  ok(Math.abs(S().savedYuan - T.COMBOS[0].save) < 0.01,
+    `记下这份套餐真实省下的钱：¥${S().savedYuan}（套餐价 ¥${T.COMBOS[0].p}）`);
+
+  T.reset(78, { autoStart: true });
+  const m1 = T.startMeal(1);
+  const first = T.spawnAt(T.COMBOS[1].items[0], S().player.x, S().player.y);
+  first.meal = m1;
+  T.update(DT);                                   // 只吃到第一件
+  for (const p of T.COMBOS[1].items.slice(1)) {
+    const it = T.spawnAt(p, 20, S().h - 60);      // 剩下两件扔远处
+    it.meal = m1;
+  }
+  for (let i = 0; i < Math.ceil((T.CFG.REST_LIFE + 2) / DT); i++) { S().spawnT = 999; T.update(DT); }
+  ok(m1.eaten === 1 && m1.missed === 2 && S().mealsDone === 0,
+    "漏掉的件算进 missed ⇒ 这份不算集齐（没有奖励）");
+
+  /* --- 今日优惠：打完这局才解锁 --- */
+  ok(T.DEALS.length >= 1, `今日优惠已注入 ${T.DEALS.length} 条`);
+  ok(T.DEALS.every((d) => d.t && /元/.test(d.v)), "每条优惠都有活动名与真实价格（元）");
+  const bd = makeBootCtx();
+  ok(bd.els.get("dealBox").classList.contains("off"), "没打完之前：今日优惠是收起的（不是白送）");
+  bd.T.reset(20261010, { autoStart: true });
+  bd.T.endGame("stuffed");
+  ok(!bd.els.get("dealBox").classList.contains("off"), "打完一局 ⇒ 今日优惠解锁");
+  const listHtml = bd.els.get("dealList").innerHTML || "";
+  ok(/元/.test(listHtml), "优惠列表里带真实价格（元）");
+  ok(listHtml.includes("集齐"), "优惠列表里带本局集齐套餐的一行");
+  ok(/data:image\/webp;base64,/.test(bd.els.get("dealCoupons").innerHTML || ""),
+    "今日优惠里挂的是真券图（内联 webp，离线也看得见）");
+  ok((bd.els.get("endStats").innerHTML || "").includes("集齐套餐"), "结算统计里有「集齐套餐」行");
+  ok((bd.els.get("reportImg").src || "").startsWith("data:image/png"), "战报图照旧生成（含今日优惠区）");
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
