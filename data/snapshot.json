@@ -1,6 +1,6 @@
 {
  "meta": {
-  "generatedAt": "2026-10-09 19:07:28",
+  "generatedAt": "2026-10-10 21:52:34",
   "source": "麦当劳中国 MCP (mcp.mcd.cn)",
   "scope": "仅公开数据：菜单 / 营养 / 活动日历 / 门店级公开优惠券",
   "note": "不含任何个人账户、积分、卡包券、订单或地址信息",
@@ -48,21 +48,10 @@
   "breakfast": {
    "categories": [
     {
-     "name": "人气热卖",
+     "name": "满分假日",
      "codes": [
       "9900016525",
-      "9900003497",
-      "9900011872",
-      "507409",
-      "9900011874"
-     ]
-    },
-    {
-     "name": "早餐汉堡",
-     "codes": [
-      "9900011874",
-      "9900011872",
-      "521315"
+      "9900003497"
      ]
     },
     {
@@ -74,6 +63,14 @@
       "9900016139",
       "521989",
       "521990"
+     ]
+    },
+    {
+     "name": "早餐汉堡",
+     "codes": [
+      "9900011874",
+      "9900011872",
+      "521315"
      ]
     },
     {
@@ -106,18 +103,7 @@
     {
      "name": "麦咖啡™",
      "codes": [
-      "515946",
-      "515955",
-      "521871",
-      "507411",
-      "507409",
-      "510479",
-      "507387",
-      "520689",
-      "507389",
-      "515949",
-      "507394",
-      "510488"
+      "520689"
      ]
     },
     {
@@ -161,14 +147,8 @@
       "521817",
       "1088",
       "520689",
-      "507328",
-      "507368",
-      "507394",
       "3505",
       "2430",
-      "507411",
-      "507409",
-      "510041",
       "515280",
       "515520",
       "3010",
@@ -207,12 +187,6 @@
      "price": 23,
      "originalPrice": 23
     },
-    "507328": {
-     "name": "麦咖啡™热奶铁中杯",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250521/product/MS_507328_320.png",
-     "price": 9.9,
-     "originalPrice": 25
-    },
     "9900016153": {
      "name": "枫糖风味厚松饼猪柳蛋堡套餐",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900016153_320.png",
@@ -231,35 +205,17 @@
      "price": 38.5,
      "originalPrice": 38.5
     },
-    "521871": {
-     "name": "美禄可可雪冰",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_521871_320.gif",
-     "price": 27,
-     "originalPrice": 27
-    },
     "521750": {
      "name": "泷盐星星麦旋风",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G521770_320.gif",
      "price": 17,
      "originalPrice": 17
     },
-    "507368": {
-     "name": "麦咖啡™热美式中杯",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250521/product/MS_507368_320.png",
-     "price": 9.9,
-     "originalPrice": 23
-    },
     "1254": {
      "name": "火腿扒麦满分",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_1254_320.png",
      "price": 11.5,
      "originalPrice": 11.5
-    },
-    "510488": {
-     "name": "燕麦奶",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G510489_320.png",
-     "price": 25,
-     "originalPrice": 25
     },
     "9900003503": {
      "name": "火腿扒早安营养卷套餐",
@@ -284,12 +240,6 @@
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_513112_320.png",
      "price": 16.5,
      "originalPrice": 16.5
-    },
-    "510041": {
-     "name": "冰牛奶中杯",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_510041_320.png",
-     "price": 23,
-     "originalPrice": 23
     },
     "521917": {
      "name": "泷愿成真麦旋风——大米风味",
@@ -344,18 +294,6 @@
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_2631_320.png",
      "price": 9,
      "originalPrice": 9
-    },
-    "510479": {
-     "name": "燕麦奶铁",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G510481_320.png",
-     "price": 9.9,
-     "originalPrice": 27
-    },
-    "507394": {
-     "name": "牛奶",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G5073941_320.png",
-     "price": 23,
-     "originalPrice": 23
     },
     "9900003477": {
      "name": "吉士蛋麦满分套餐",
@@ -453,18 +391,6 @@
      "price": 29.5,
      "originalPrice": 29.5
     },
-    "507389": {
-     "name": "浓缩咖啡",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250324/product/MS_507389_320.png",
-     "price": 19,
-     "originalPrice": 19
-    },
-    "507387": {
-     "name": "卡布奇诺",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250324/product/MS_G507388_320.png",
-     "price": 25,
-     "originalPrice": 25
-    },
     "9900008751": {
      "name": "可乐",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900008751_320.gif",
@@ -476,12 +402,6 @@
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_6800_320.png",
      "price": 16,
      "originalPrice": 16
-    },
-    "515955": {
-     "name": "浓浓燕麦黑巧（冰/热）",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20261008/product/MS_G515954_320.gif",
-     "price": 27,
-     "originalPrice": 27
     },
     "9900008752": {
      "name": "派",
@@ -525,12 +445,6 @@
      "price": 10.5,
      "originalPrice": 10.5
     },
-    "507409": {
-     "name": "麦咖啡™奶铁",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G507372_320.gif",
-     "price": 9.9,
-     "originalPrice": 25
-    },
     "3505": {
      "name": "锡兰红茶",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_3505_320.png",
@@ -542,18 +456,6 @@
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_505235_320.png",
      "price": 9.5,
      "originalPrice": 9.5
-    },
-    "507411": {
-     "name": "麦咖啡™美式",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G507374_320.gif",
-     "price": 9.9,
-     "originalPrice": 23
-    },
-    "515949": {
-     "name": "浓浓黑巧雪冰",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250611/product/MS_G515949_320.png",
-     "price": 27,
-     "originalPrice": 27
     },
     "5888": {
      "name": "吉士蛋麦满分",
@@ -572,12 +474,6 @@
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G4437_320.png",
      "price": 14.5,
      "originalPrice": 14.5
-    },
-    "515946": {
-     "name": "浓浓黑巧（冰/热）",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20261008/product/MS_G515945_320.gif",
-     "price": 25,
-     "originalPrice": 25
     },
     "9900003498": {
      "name": "双层原味板烧鸡腿麦满分套餐",
@@ -601,6 +497,17 @@
      ]
     },
     {
+     "name": "小食拼盘\n/多人餐",
+     "codes": [
+      "9900016076",
+      "9900016308",
+      "9900006332",
+      "9900015730",
+      "9900004066",
+      "9900006246"
+     ]
+    },
+    {
      "name": "精选单人餐",
      "codes": [
       "9900004064"
@@ -616,22 +523,13 @@
       "9900005462",
       "9900005456",
       "9900005453",
+      "9900015008",
       "9900006248",
       "1440",
       "1406",
       "1450",
+      "521816",
       "9900008746"
-     ]
-    },
-    {
-     "name": "小食拼盘\n/多人餐",
-     "codes": [
-      "9900016076",
-      "9900016308",
-      "9900006332",
-      "9900015730",
-      "9900004066",
-      "9900006246"
      ]
     },
     {
@@ -697,6 +595,7 @@
       "521917",
       "521741",
       "4810",
+      "514782",
       "4437",
       "6102",
       "521750",
@@ -708,18 +607,7 @@
     {
      "name": "麦咖啡™",
      "codes": [
-      "515946",
-      "515955",
-      "521871",
-      "507411",
-      "507409",
-      "510479",
-      "507387",
-      "520689",
-      "507389",
-      "515949",
-      "507394",
-      "510488"
+      "520689"
      ]
     },
     {
@@ -828,12 +716,6 @@
      "price": 17,
      "originalPrice": 17
     },
-    "521871": {
-     "name": "美禄可可雪冰",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_521871_320.gif",
-     "price": 27,
-     "originalPrice": 27
-    },
     "9900016075": {
      "name": "龙焰芝士棒鸡腿堡三件套",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900016075_320.png",
@@ -857,12 +739,6 @@
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260824/product/MS_G504969_320.png",
      "price": 39,
      "originalPrice": 39
-    },
-    "510488": {
-     "name": "燕麦奶",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G510489_320.png",
-     "price": 25,
-     "originalPrice": 25
     },
     "9900005462": {
      "name": "板烧鸡腿堡三件套",
@@ -936,6 +812,12 @@
      "price": 26.5,
      "originalPrice": 26.5
     },
+    "9900015008": {
+     "name": "酥酥多笋卷三件套",
+     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260824/product/MS_9900015008_320.png",
+     "price": 45.5,
+     "originalPrice": 45.5
+    },
     "521953": {
      "name": "龙焰芝士棒鸡腿堡",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_521953_320.png",
@@ -990,23 +872,11 @@
      "price": 14.5,
      "originalPrice": 14.5
     },
-    "510479": {
-     "name": "燕麦奶铁",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G510481_320.png",
-     "price": 27,
-     "originalPrice": 27
-    },
     "9900005453": {
      "name": "麦香鸡套餐",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260824/product/MS_G504967_320.png",
      "price": 41.5,
      "originalPrice": 41.5
-    },
-    "507394": {
-     "name": "牛奶",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G5073941_320.png",
-     "price": 23,
-     "originalPrice": 23
     },
     "9900005411": {
      "name": "不素之霸双层牛堡三件套",
@@ -1092,23 +962,11 @@
      "price": 19.5,
      "originalPrice": 19.5
     },
-    "507389": {
-     "name": "浓缩咖啡",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250324/product/MS_507389_320.png",
-     "price": 19,
-     "originalPrice": 19
-    },
     "9900009245": {
      "name": "牛气满满套餐",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900009245_320.png",
      "price": 50.5,
      "originalPrice": 50.5
-    },
-    "507387": {
-     "name": "卡布奇诺",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250324/product/MS_G507388_320.png",
-     "price": 25,
-     "originalPrice": 25
     },
     "9900008751": {
      "name": "可乐",
@@ -1122,23 +980,29 @@
      "price": 56,
      "originalPrice": 56
     },
-    "515955": {
-     "name": "浓浓燕麦黑巧（冰/热）",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20261008/product/MS_G515954_320.gif",
-     "price": 27,
-     "originalPrice": 27
-    },
     "9900008752": {
      "name": "派",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G9900008752_320.gif",
      "price": 9.5,
      "originalPrice": 9.5
     },
+    "521816": {
+     "name": "酥酥多笋卷",
+     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_521816_320.png",
+     "price": 24,
+     "originalPrice": 24
+    },
     "9900005468": {
      "name": "培根蔬萃双层牛堡三件套",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260824/product/MS_9900005468_320.png",
      "price": 50.5,
      "originalPrice": 50.5
+    },
+    "514782": {
+     "name": "脆脆薯条",
+     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250523/product/MS_514782_320_1747877523158.png",
+     "price": 16.5,
+     "originalPrice": 16.5
     },
     "521817": {
      "name": "【美汁源】“多汁柠柠”",
@@ -1176,12 +1040,6 @@
      "price": 10.5,
      "originalPrice": 10.5
     },
-    "507409": {
-     "name": "麦咖啡™奶铁",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G507372_320.gif",
-     "price": 25,
-     "originalPrice": 25
-    },
     "3505": {
      "name": "锡兰红茶",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_3505_320.png",
@@ -1199,18 +1057,6 @@
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260529/product/MS_G1401_320.png",
      "price": 15.5,
      "originalPrice": 15.5
-    },
-    "507411": {
-     "name": "麦咖啡™美式",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G507374_320.gif",
-     "price": 23,
-     "originalPrice": 23
-    },
-    "515949": {
-     "name": "浓浓黑巧雪冰",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250611/product/MS_G515949_320.png",
-     "price": 27,
-     "originalPrice": 27
     },
     "9900016082": {
      "name": "心形薯饼5块",
@@ -1230,29 +1076,23 @@
      "price": 14.5,
      "originalPrice": 14.5
     },
-    "1406": {
-     "name": "板烧鸡腿堡",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20241008/product/MS_1406_320.png",
-     "price": 26,
-     "originalPrice": 26
-    },
     "9900006246": {
      "name": "只爱甜的便民套餐",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900006246_320.png",
      "price": 25,
      "originalPrice": 25
     },
+    "1406": {
+     "name": "板烧鸡腿堡",
+     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20241008/product/MS_1406_320.png",
+     "price": 26,
+     "originalPrice": 26
+    },
     "9900005432": {
      "name": "麦麦脆汁鸡1块",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900005432_320.png",
      "price": 15.5,
      "originalPrice": 15.5
-    },
-    "515946": {
-     "name": "浓浓黑巧（冰/热）",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20261008/product/MS_G515945_320.gif",
-     "price": 25,
-     "originalPrice": 25
     }
    }
   },
@@ -1270,6 +1110,17 @@
      ]
     },
     {
+     "name": "小食拼盘\n/多人餐",
+     "codes": [
+      "9900016076",
+      "9900016308",
+      "9900006332",
+      "9900015730",
+      "9900004066",
+      "9900006246"
+     ]
+    },
+    {
      "name": "精选单人餐",
      "codes": [
       "9900004064"
@@ -1285,22 +1136,13 @@
       "9900005462",
       "9900005456",
       "9900005453",
+      "9900015008",
       "9900006248",
       "1440",
       "1406",
       "1450",
+      "521816",
       "9900008746"
-     ]
-    },
-    {
-     "name": "小食拼盘\n/多人餐",
-     "codes": [
-      "9900016076",
-      "9900016308",
-      "9900006332",
-      "9900015730",
-      "9900004066",
-      "9900006246"
      ]
     },
     {
@@ -1366,6 +1208,7 @@
       "521917",
       "521741",
       "4810",
+      "514782",
       "4437",
       "6102",
       "521750",
@@ -1377,18 +1220,7 @@
     {
      "name": "麦咖啡™",
      "codes": [
-      "515946",
-      "515955",
-      "521871",
-      "507411",
-      "507409",
-      "510479",
-      "507387",
-      "520689",
-      "507389",
-      "515949",
-      "507394",
-      "510488"
+      "520689"
      ]
     },
     {
@@ -1497,12 +1329,6 @@
      "price": 17,
      "originalPrice": 17
     },
-    "521871": {
-     "name": "美禄可可雪冰",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_521871_320.gif",
-     "price": 27,
-     "originalPrice": 27
-    },
     "9900016075": {
      "name": "龙焰芝士棒鸡腿堡三件套",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900016075_320.png",
@@ -1526,12 +1352,6 @@
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260824/product/MS_G504969_320.png",
      "price": 39,
      "originalPrice": 39
-    },
-    "510488": {
-     "name": "燕麦奶",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G510489_320.png",
-     "price": 25,
-     "originalPrice": 25
     },
     "9900005462": {
      "name": "板烧鸡腿堡三件套",
@@ -1605,6 +1425,12 @@
      "price": 26.5,
      "originalPrice": 26.5
     },
+    "9900015008": {
+     "name": "酥酥多笋卷三件套",
+     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260824/product/MS_9900015008_320.png",
+     "price": 45.5,
+     "originalPrice": 45.5
+    },
     "521953": {
      "name": "龙焰芝士棒鸡腿堡",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_521953_320.png",
@@ -1659,23 +1485,11 @@
      "price": 14.5,
      "originalPrice": 14.5
     },
-    "510479": {
-     "name": "燕麦奶铁",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G510481_320.png",
-     "price": 27,
-     "originalPrice": 27
-    },
     "9900005453": {
      "name": "麦香鸡套餐",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260824/product/MS_G504967_320.png",
      "price": 41.5,
      "originalPrice": 41.5
-    },
-    "507394": {
-     "name": "牛奶",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G5073941_320.png",
-     "price": 23,
-     "originalPrice": 23
     },
     "9900005411": {
      "name": "不素之霸双层牛堡三件套",
@@ -1761,23 +1575,11 @@
      "price": 19.5,
      "originalPrice": 19.5
     },
-    "507389": {
-     "name": "浓缩咖啡",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250324/product/MS_507389_320.png",
-     "price": 19,
-     "originalPrice": 19
-    },
     "9900009245": {
      "name": "牛气满满套餐",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900009245_320.png",
      "price": 50.5,
      "originalPrice": 50.5
-    },
-    "507387": {
-     "name": "卡布奇诺",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250324/product/MS_G507388_320.png",
-     "price": 25,
-     "originalPrice": 25
     },
     "9900008751": {
      "name": "可乐",
@@ -1791,23 +1593,29 @@
      "price": 56,
      "originalPrice": 56
     },
-    "515955": {
-     "name": "浓浓燕麦黑巧（冰/热）",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20261008/product/MS_G515954_320.gif",
-     "price": 27,
-     "originalPrice": 27
-    },
     "9900008752": {
      "name": "派",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_G9900008752_320.gif",
      "price": 9.5,
      "originalPrice": 9.5
     },
+    "521816": {
+     "name": "酥酥多笋卷",
+     "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_521816_320.png",
+     "price": 24,
+     "originalPrice": 24
+    },
     "9900005468": {
      "name": "培根蔬萃双层牛堡三件套",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260824/product/MS_9900005468_320.png",
      "price": 50.5,
      "originalPrice": 50.5
+    },
+    "514782": {
+     "name": "脆脆薯条",
+     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250523/product/MS_514782_320_1747877523158.png",
+     "price": 16.5,
+     "originalPrice": 16.5
     },
     "521817": {
      "name": "【美汁源】“多汁柠柠”",
@@ -1845,12 +1653,6 @@
      "price": 10.5,
      "originalPrice": 10.5
     },
-    "507409": {
-     "name": "麦咖啡™奶铁",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G507372_320.gif",
-     "price": 25,
-     "originalPrice": 25
-    },
     "3505": {
      "name": "锡兰红茶",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_3505_320.png",
@@ -1868,18 +1670,6 @@
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260529/product/MS_G1401_320.png",
      "price": 15.5,
      "originalPrice": 15.5
-    },
-    "507411": {
-     "name": "麦咖啡™美式",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G507374_320.gif",
-     "price": 23,
-     "originalPrice": 23
-    },
-    "515949": {
-     "name": "浓浓黑巧雪冰",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20250611/product/MS_G515949_320.png",
-     "price": 27,
-     "originalPrice": 27
     },
     "9900016082": {
      "name": "心形薯饼5块",
@@ -1899,29 +1689,23 @@
      "price": 14.5,
      "originalPrice": 14.5
     },
-    "1406": {
-     "name": "板烧鸡腿堡",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20241008/product/MS_1406_320.png",
-     "price": 26,
-     "originalPrice": 26
-    },
     "9900006246": {
      "name": "只爱甜的便民套餐",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900006246_320.png",
      "price": 25,
      "originalPrice": 25
     },
+    "1406": {
+     "name": "板烧鸡腿堡",
+     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20241008/product/MS_1406_320.png",
+     "price": 26,
+     "originalPrice": 26
+    },
     "9900005432": {
      "name": "麦麦脆汁鸡1块",
      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_9900005432_320.png",
      "price": 15.5,
      "originalPrice": 15.5
-    },
-    "515946": {
-     "name": "浓浓黑巧（冰/热）",
-     "image": "https://menu-img.mcd.cn/pcm/prod/menu/20261008/product/MS_G515945_320.gif",
-     "price": 25,
-     "originalPrice": 25
     }
    }
   }
@@ -3705,84 +3489,84 @@
    "content": "**活动内容介绍**：☕甄选 2024IIAC 国际咖啡品鉴大赛“金奖“咖啡豆\n🥪多款人气早餐主食随心挑选，满足你的多种需求\n✨清晨能量一键配齐，14.9元起，开启你的元气一天\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/0c9f4ae90aa1481bd5275588a0456869.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
   },
   {
-   "date": "2026年10月9日 今日",
-   "title": "韩式风味蘸酱上新❤️就「酱」心有所「薯」",
-   "content": "**活动内容介绍**：🆕韩式辣椒黄油风味酱\n韩式辣酱碰撞青梅，裹挟黄油香气\n鸡薯双全盒仅需15.9元起✨getGD同款花式比心\n🆕韩式烟熏芝士风味酱\n浓郁芝香邂逅韩式香辛风味，烟熏香气层层释放\n蘸酱炸鸡仅需11.9元起🍗\n炸鸡薯饼蘸酱我全都喜欢！\n10月8日 10:30起正式开售⏰\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/01acad0d43f6f5c062d58eecd375e167.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "麦当劳 X PEACEMINUSONE",
-   "content": "**活动内容介绍**：GD同款联名复古棒球帽\n任意餐品消费加39.9元即可得\n经典红黄配色搭配复古轮廓，MV同款灵感重现\n更有标志性小雏菊刺绣图案点缀\n10月8日10:45开售\n更有APP专享积分抢先购10:40开抢\n与GD一起探索潮流新篇章🖤\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/689d30bef705f848fe1fd3cfc0f419b2.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
+   "date": "2026年10月9日 往期回顾",
    "title": "麦当劳联动G-DRAGON",
    "content": "**活动内容介绍**：带来韩式风味系列新品❗️\n龙焰鸡腿堡三件套 26.9 元起即刻开吃🍔\n韩式辣酱搭配酥脆多汁鸡腿排🤤\n还可升级29.9元龙焰芝士棒鸡腿堡三件套，\n两根马苏里拉拉丝芝士条，热时双倍拉丝更过瘾🧀\n10月8日 10:30 准时开售⏰You lovin' it？\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/25809373fbf2e5f9bb9699195149b88a.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
   },
   {
-   "date": "2026年10月9日 今日",
-   "title": "🫐一口爆汁！蓝莓爆爆珠麦旋风上新",
-   "content": "**活动内容介绍**：🫐蓝莓爆爆珠麦旋风上新！\n💜清甜蓝莓碰上醇厚奶香，酸甜清爽。\n💥真实蓝莓原浆x爆爆珠，颗颗爆汁好惊喜。\n😋绵密冰淇淋撞上弹爽口感，莓好滋味层层爆开！\n还在等什么，马上尝新~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/105121c86e1023b6cc4b7fb4754ca145.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "早餐爆款回归，快来pick你的厚松饼堡！📣",
-   "content": "**活动内容介绍**：返工别紧张，厚松饼堡让你松软一下🫵\n🥞甜甜松饼，软软口感\n🍁经典枫糖风味和浓郁巧克力味两款可选🍫\n10月8日起，指定套餐可享早餐卡6折优惠\n3件套到手只要15元起，快来优惠吃\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/76fc2955b74f7c69121d5299a0047ae1.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "🍫麦咖啡13.9r浓浓黑巧来啦！",
-   "content": "**活动内容介绍**：地道浓醇黑巧，风味浓郁醇厚\n200目精细研磨工艺，触感丝滑如绒\n戳下方，速来解锁！\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/6142c8e169c5c3a97bf90047ca446a46.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "麦咖啡一早现磨🥳元气早餐震撼来袭！",
-   "content": "**活动内容介绍**：☕甄选 2024IIAC 国际咖啡品鉴大赛“金奖“咖啡豆\n🥪多款人气早餐主食随心挑选，满足你的多种需求\n✨清晨能量一键配齐，14.9元起，开启你的元气一天\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/0c9f4ae90aa1481bd5275588a0456869.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "🩶灰白撞色，灰焰圆筒酷爽登场",
-   "content": "**活动内容介绍**：🩶灰焰圆筒酷爽上新！\n🍦浓郁香草味碰上酷灰脆筒，灰白撞色吸睛。\n✨入口绵密丝滑，一口咬下筒壳咔嚓酥脆。\n😋绵密与香脆层层交织，一口解锁甜酷反差！\n还在等什么，马上尝新~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/5236ca16c841a90eadb0daf4758a2945.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "超值𝟗.𝟗元早餐两件套陪你开工啦😋",
-   "content": "**活动内容介绍**：早八的快乐，一堡一咖已就位🍔☕\n𝟏𝟎月𝟖日至𝟏𝟎月𝟐𝟏日\n🍔周一至周五早餐堡轮流上早班\n🤩今天这堡 明天那堡\n☕鲜萃咖啡搭档到位\n凭券两件套只要9.9元\n速戳👇快定好闹钟一起来吃\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/553a0a73cd1eacee7212515b7b071b90.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "学生专属！49元150天麦金学期卡💳",
-   "content": "**活动内容介绍**：💰仅0.33元/天，到手150天吃麦特权！\n5️⃣折起吃超值四件套、6折吃早餐\n🛵每日两次满额免配，9.9元麦咖啡\n🦉开卡还送多邻国月卡，美味和学习一步到位\n👛新学期钱包不吃紧，开心吃麦快乐学习！\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/99e637e8b965cbb7895e102b5c25b0c2.png\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "过家家派对上线，快来一起解锁梦想职业",
-   "content": "**活动内容介绍**：过家家派对就要开始啦!\n萌娃cosplay梦想职业，精美职业服带回家\nDIY 创意手工，想象力在指尖自由绽放\n9月9日到店解锁过家家派对\n粉红姐姐带你玩转麦当劳，开启童趣一天~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/fd3efb9e2c3a89ba6aa8dfa4676aa333.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "“韩”风刮到了四件套~龙焰鸡腿堡来袭！",
-   "content": "**活动内容介绍**：🍔麦金卡点「龙焰鸡腿堡」四件套29元起\n🍗韩式辣酱碰撞青梅黄油，爆脆鸡腿排多汁裹酱！\n✨一张麦金卡包揽全天吃麦特权\n6折早餐、9.9元麦咖啡、满额免配统统安排\n😋快来打卡美味，这场韩式盛宴等你加入！\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/b6da228249fab7761748bb6e24c50f93.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "乐享90分钟高质量亲子时间",
-   "content": "**活动内容介绍**：打造高质量陪伴时光🎊\n9本热门书籍且每月更新！\n更有开心乐园餐+随机玩具一份🎁\n好吃又好玩！快报名参加吧~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/63bd426f45860fbe26025234054bf773.png\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月9日 今日",
-   "title": "快来一起参加麦麦派对吧！",
-   "content": "**活动内容介绍**：遛娃好去处🎉麦当劳趣读派对！\n6大环节，趣味互动✨\n好吃又好玩，快乐持续加倍！\n👇一起领取“读书小达人“证书吧~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/39e02c45a3b5d9febaf7ac3a5d03f0b9.png\" alt=\"\" height=\"300\" width=\"auto\">"
-  },
-  {
-   "date": "2026年10月10日",
+   "date": "2026年10月10日 今日",
    "title": "韩式风味蘸酱上新❤️就「酱」心有所「薯」",
    "content": "**活动内容介绍**：🆕韩式辣椒黄油风味酱\n韩式辣酱碰撞青梅，裹挟黄油香气\n鸡薯双全盒仅需15.9元起✨getGD同款花式比心\n🆕韩式烟熏芝士风味酱\n浓郁芝香邂逅韩式香辛风味，烟熏香气层层释放\n蘸酱炸鸡仅需11.9元起🍗\n炸鸡薯饼蘸酱我全都喜欢！\n10月8日 10:30起正式开售⏰\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/01acad0d43f6f5c062d58eecd375e167.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
   },
   {
-   "date": "2026年10月10日",
-   "title": "预约麦金喜抽奖，🉐[积分霸王餐]",
-   "content": "**活动内容介绍**：宝子😸天上不会掉馅饼\n😆但麦麦会掉落免费汉堡~\n💪麦金喜抽奖吃[积分霸王餐]\n🍔免费龙焰鸡腿堡/麦辣鸡腿堡\n抽奖时间：10月10日 00:00开始⏰速戳预约！\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/5be1d91c50beb6d04cf8185055fa92a5.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+   "date": "2026年10月10日 今日",
+   "title": "麦当劳 X PEACEMINUSONE",
+   "content": "**活动内容介绍**：GD同款联名复古棒球帽\n任意餐品消费加39.9元即可得\n经典红黄配色搭配复古轮廓，MV同款灵感重现\n更有标志性小雏菊刺绣图案点缀\n10月8日10:45开售\n更有APP专享积分抢先购10:40开抢\n与GD一起探索潮流新篇章🖤\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/689d30bef705f848fe1fd3cfc0f419b2.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "麦当劳联动G-DRAGON",
+   "content": "**活动内容介绍**：带来韩式风味系列新品❗️\n龙焰鸡腿堡三件套 26.9 元起即刻开吃🍔\n韩式辣酱搭配酥脆多汁鸡腿排🤤\n还可升级29.9元龙焰芝士棒鸡腿堡三件套，\n两根马苏里拉拉丝芝士条，热时双倍拉丝更过瘾🧀\n10月8日 10:30 准时开售⏰You lovin' it？\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/25809373fbf2e5f9bb9699195149b88a.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "🫐一口爆汁！蓝莓爆爆珠麦旋风上新",
+   "content": "**活动内容介绍**：🫐蓝莓爆爆珠麦旋风上新！\n💜清甜蓝莓碰上醇厚奶香，酸甜清爽。\n💥真实蓝莓原浆x爆爆珠，颗颗爆汁好惊喜。\n😋绵密冰淇淋撞上弹爽口感，莓好滋味层层爆开！\n还在等什么，马上尝新~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/105121c86e1023b6cc4b7fb4754ca145.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "参与麦金喜抽奖，🉐[积分霸王餐]",
+   "content": "**活动内容介绍**：宝子😸天上不会掉馅饼\n😆但麦麦会掉落免费汉堡~\n💪麦金喜抽奖吃[积分霸王餐]\n🍔免费龙焰鸡腿堡/麦辣鸡腿堡\n抽奖时间：10月10日⏰\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/5be1d91c50beb6d04cf8185055fa92a5.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "早餐爆款回归，快来pick你的厚松饼堡！📣",
+   "content": "**活动内容介绍**：返工别紧张，厚松饼堡让你松软一下🫵\n🥞甜甜松饼，软软口感\n🍁经典枫糖风味和浓郁巧克力味两款可选🍫\n10月8日起，指定套餐可享早餐卡6折优惠\n3件套到手只要15元起，快来优惠吃\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/76fc2955b74f7c69121d5299a0047ae1.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "🍫麦咖啡13.9r浓浓黑巧来啦！",
+   "content": "**活动内容介绍**：地道浓醇黑巧，风味浓郁醇厚\n200目精细研磨工艺，触感丝滑如绒\n戳下方，速来解锁！\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/6142c8e169c5c3a97bf90047ca446a46.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "麦咖啡一早现磨🥳元气早餐震撼来袭！",
+   "content": "**活动内容介绍**：☕甄选 2024IIAC 国际咖啡品鉴大赛“金奖“咖啡豆\n🥪多款人气早餐主食随心挑选，满足你的多种需求\n✨清晨能量一键配齐，14.9元起，开启你的元气一天\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/0c9f4ae90aa1481bd5275588a0456869.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "🩶灰白撞色，灰焰圆筒酷爽登场",
+   "content": "**活动内容介绍**：🩶灰焰圆筒酷爽上新！\n🍦浓郁香草味碰上酷灰脆筒，灰白撞色吸睛。\n✨入口绵密丝滑，一口咬下筒壳咔嚓酥脆。\n😋绵密与香脆层层交织，一口解锁甜酷反差！\n还在等什么，马上尝新~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/5236ca16c841a90eadb0daf4758a2945.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "超值𝟗.𝟗元早餐两件套陪你开工啦😋",
+   "content": "**活动内容介绍**：早八的快乐，一堡一咖已就位🍔☕\n𝟏𝟎月𝟖日至𝟏𝟎月𝟐𝟏日\n🍔周一至周五早餐堡轮流上早班\n🤩今天这堡 明天那堡\n☕鲜萃咖啡搭档到位\n凭券两件套只要9.9元\n速戳👇快定好闹钟一起来吃\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/553a0a73cd1eacee7212515b7b071b90.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "学生专属！49元150天麦金学期卡💳",
+   "content": "**活动内容介绍**：💰仅0.33元/天，到手150天吃麦特权！\n5️⃣折起吃超值四件套、6折吃早餐\n🛵每日两次满额免配，9.9元麦咖啡\n🦉开卡还送多邻国月卡，美味和学习一步到位\n👛新学期钱包不吃紧，开心吃麦快乐学习！\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/99e637e8b965cbb7895e102b5c25b0c2.png\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "过家家派对上线，快来一起解锁梦想职业",
+   "content": "**活动内容介绍**：过家家派对就要开始啦!\n萌娃cosplay梦想职业，精美职业服带回家\nDIY 创意手工，想象力在指尖自由绽放\n9月9日到店解锁过家家派对\n粉红姐姐带你玩转麦当劳，开启童趣一天~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/fd3efb9e2c3a89ba6aa8dfa4676aa333.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "“韩”风刮到了四件套~龙焰鸡腿堡来袭！",
+   "content": "**活动内容介绍**：🍔麦金卡点「龙焰鸡腿堡」四件套29元起\n🍗韩式辣酱碰撞青梅黄油，爆脆鸡腿排多汁裹酱！\n✨一张麦金卡包揽全天吃麦特权\n6折早餐、9.9元麦咖啡、满额免配统统安排\n😋快来打卡美味，这场韩式盛宴等你加入！\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/b6da228249fab7761748bb6e24c50f93.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "乐享90分钟高质量亲子时间",
+   "content": "**活动内容介绍**：打造高质量陪伴时光🎊\n9本热门书籍且每月更新！\n更有开心乐园餐+随机玩具一份🎁\n好吃又好玩！快报名参加吧~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/63bd426f45860fbe26025234054bf773.png\" alt=\"\" height=\"300\" width=\"auto\">"
+  },
+  {
+   "date": "2026年10月10日 今日",
+   "title": "快来一起参加麦麦派对吧！",
+   "content": "**活动内容介绍**：遛娃好去处🎉麦当劳趣读派对！\n6大环节，趣味互动✨\n好吃又好玩，快乐持续加倍！\n👇一起领取“读书小达人“证书吧~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/39e02c45a3b5d9febaf7ac3a5d03f0b9.png\" alt=\"\" height=\"300\" width=\"auto\">"
   },
   {
    "date": "2026年10月11日",
@@ -3840,20 +3624,5 @@
    "content": "**活动内容介绍**：过家家派对就要开始啦!\n萌娃cosplay梦想职业，精美职业服带回家\nDIY 创意手工，想象力在指尖自由绽放\n9月9日到店解锁过家家派对\n粉红姐姐带你玩转麦当劳，开启童趣一天~\n**活动图片介绍**：\n<img src=\"https://cms-cdn.mcd.cn/img/short-content/fd3efb9e2c3a89ba6aa8dfa4676aa333.jpg\" alt=\"\" height=\"300\" width=\"auto\">"
   }
  ],
- "storeCoupons": [
-  {
-   "title": "新人专享-中杯美式7折",
-   "products": [
-    "美式中杯"
-   ],
-   "window": "2026-10-09 00:00:00-2026-11-07 23:59:59"
-  },
-  {
-   "title": "新人专享-中杯奶铁7折",
-   "products": [
-    "奶铁中杯"
-   ],
-   "window": "2026-10-09 00:00:00-2026-11-07 23:59:59"
-  }
- ]
+ "storeCoupons": []
 }
