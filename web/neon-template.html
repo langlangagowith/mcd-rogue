@@ -131,7 +131,9 @@
       敌人不是瞎编的：每种餐品的<b>血量、体型、速度</b>都由麦当劳官方营养数据（热量）派生
       （数据来自本项目真实调用的 MCP 接口），越顶饱的越肉、越大、越慢。<br>
       <b>看立绘识危险</b>：薯条<b>会冲刺</b>、麦乐鸡倒下<b>会分裂</b>、辣翅倒下<b>会炸</b>、
-      饮料咖啡<b>会喷弹</b>——每隔 45 秒还有一波<b>出餐高峰</b>（金边怪是精英，更肉更值）。
+      饮料咖啡<b>会喷弹</b>——每隔 45 秒还有一波<b>出餐高峰</b>（金边怪是精英，更肉更值）。<br>
+      血量<b>首次跌到 20%</b> 会自动放一次「<b>麦门爆发</b>」：轰掉屏幕上所有小怪，
+      BOSS 也吃一记重伤（每局仅一次，危险时别硬扛）。
     </div>
   </div>
 </div>
@@ -181,7 +183,7 @@
    ========================================================================= */
 
 const DATA = /*__NEON_DATA__*/;
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 /* 食物立绘：与出餐口共用同一批素材（构建期 base64 内联，运行时不碰网络）。
    加载失败 / 缺图 / 老内核无 Image 时，渲染自动回退为色块圆 —— 视觉不塌。 */
@@ -367,6 +369,7 @@ function emptyState(seed) {
     version: VERSION, seed, rng: mulberry32(seed),
     time: 0, started: false, over: false, won: false, paused: false, levelup: null,
     kills: 0, nextBossAt: BOSS_EVERY, nextPeakAt: 45, spawnTimer: 1.4, survivedBest: 0,
+    burstUsed: false, shake: 0,
     player: { x: 0, y: 0, r: 14, hp: 100, maxHp: 100, speed: 212, pickup: 78,
       level: 1, xp: 0, xpNeed: xpNeedFor(1), invuln: 0, face: -Math.PI / 2, dash: 0 },
     enemies: [], bullets: [], ebullets: [], gems: [], drops: [], zones: [], fx: [], orbits: [],
@@ -454,10 +457,12 @@ function hurtEnemy(S, e, dmg, crit) {
   }
   if (e.hp <= 0) killEnemy(S, e);
 }
-function killEnemy(S, e) {
+function killEnemy(S, e, opts) {
   e.dead = true; S.kills++;
+  // 「麦门爆发」清场用 quiet 模式：被爆死的小怪不再分裂/爆炸（保命技不能反被连锁坑）
+  const quiet = !!(opts && opts.quiet);
   // 分裂（麦乐鸡盒）：倒下散出一地小鸡块——清不干净会被围
-  if (e.trait === "split" && !e.mini && S.enemies.length < MAX_ENEMIES - 4) {
+  if (e.trait === "split" && !e.mini && !quiet && S.enemies.length < MAX_ENEMIES - 4) {
     for (let i = 0; i < 3; i++) {
       const a = S.rng() * TAU;
       const m = {
@@ -473,16 +478,17 @@ function killEnemy(S, e) {
     }
     S.fx.push({ kind: "pop", x: e.x, y: e.y - e.r, t: 0, dur: 0.55, txt: "裂开！", color: "#ffd93d" });
   }
-  // 爆炸（辣翅类）：倒下时辣你一下——别贴着它打
-  if (e.trait === "boom") {
+  // 爆炸（辣翅类）：倒下时辣你一下——别贴着它打（爆发清场时不炸，保命技不反噬）
+  if (e.trait === "boom" && !quiet) {
     const R = 84;
     S.fx.push({ kind: "ring", x: e.x, y: e.y, r: 12, R, t: 0, dur: 0.4, color: "#ff8a3d" });
     if (S.player.invuln <= 0 && Math.hypot(S.player.x - e.x, S.player.y - e.y) < R + S.player.r) {
       const dmg = 9;
-      S.player.hp -= dmg; S.player.invuln = 0.42;
+      S.player.invuln = 0.42;
       S.fx.push({ kind: "pop", x: S.player.x, y: S.player.y - 26, t: 0, dur: 0.5, txt: `-${dmg}`, color: "#ff5b4d" });
       sfx(S, "hurt");
-      if (S.player.hp <= 0) { S.player.hp = 0; endGame(S, false); return; }
+      hurtPlayer(S, dmg);
+      if (S.over) return;
     }
   }
   const n = clamp(Math.round(e.xp / 3), 1, 5);
@@ -499,6 +505,41 @@ function killEnemy(S, e) {
     S.drops.push({ x: e.x, y: e.y, kind: "heart", r: 9, t: 0 });
   }
   sfx(S, "kill");
+}
+
+/* 玩家受伤统一入口：扣血 → 致死判定 → 「麦门爆发」检查。
+   ⚠ 所有伤害源必须走这里，否则爆发机制会被绕过（接触 / 敌弹 / 爆炸 已全部接入）。 */
+function hurtPlayer(S, dmg) {
+  const P = S.player;
+  P.hp -= dmg;
+  if (P.hp <= 0) { P.hp = 0; endGame(S, false); return; }
+  // 本局首次跌破 20% ⇒ 自动释放一次「麦门爆发」（一次性保命技）
+  if (!S.burstUsed && P.hp <= P.maxHp * 0.2) triggerBurst(S);
+}
+
+/* 麦门爆发：血量首次跌到 20% 自动释放 —— 轰掉「屏幕上」（640px 内）所有小怪；
+   BOSS 不秒杀，只吃 320 固定伤害。清场用 quiet 模式：被爆死的麦乐鸡不再分裂、
+   辣翅不再爆（保命技不能反被连锁坑）。每局仅一次；震屏 + 白闪 + 三圈冲击波。 */
+function triggerBurst(S) {
+  S.burstUsed = true;
+  const P = S.player, R = 640;
+  S.shake = 1;
+  S.fx.push({ kind: "flash", t: 0, dur: 0.3 });
+  S.fx.push({ kind: "ring", x: P.x, y: P.y, r: 16, R: 260, t: 0, dur: 0.5, color: "#ffffff" });
+  S.fx.push({ kind: "ring", x: P.x, y: P.y, r: 16, R: 430, t: 0, dur: 0.62, color: "#ffd24d" });
+  S.fx.push({ kind: "ring", x: P.x, y: P.y, r: 16, R, t: 0, dur: 0.78, color: "#ff5b4d" });
+  S.fx.push({ kind: "pop", x: P.x, y: P.y - 64, t: 0, dur: 1.15, txt: "麦门爆发！", color: "#ffd93d" });
+  toast("麦门爆发 · 清场！");
+  let n = 0;
+  for (const e of S.enemies) {
+    if (e.dead) continue;
+    if (Math.hypot(e.x - P.x, e.y - P.y) > R) continue;
+    if (e.boss) { e.hp -= 320; e.flash = 0.3; if (e.hp <= 0) killEnemy(S, e, { quiet: true }); continue; }
+    killEnemy(S, e, { quiet: true });
+    n++;
+  }
+  sfx(S, "boss");
+  return n;
 }
 
 /* ------------------------------ 升级三选一 ---------------------------- */
@@ -722,11 +763,12 @@ function update(dt) {
     b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
     if (b.life <= 0) { S.ebullets.splice(i, 1); continue; }
     if (P.invuln <= 0 && Math.hypot(b.x - P.x, b.y - P.y) < P.r + b.r) {
-      P.hp -= b.dmg; P.invuln = 0.42;
+      P.invuln = 0.42;
       S.fx.push({ kind: "pop", x: P.x, y: P.y - 26, t: 0, dur: 0.5, txt: `-${b.dmg}`, color: "#ff5b4d" });
       sfx(S, "hurt");
       S.ebullets.splice(i, 1);
-      if (P.hp <= 0) { P.hp = 0; endGame(S, false); return; }
+      hurtPlayer(S, b.dmg);
+      if (S.over) return;
     }
   }
 
@@ -774,10 +816,11 @@ function update(dt) {
     if (e.flash > 0) e.flash -= dt;
     if (e.hitCd > 0) e.hitCd -= dt;
     if (d < e.r + P.r && e.hitCd <= 0 && P.invuln <= 0) {
-      P.hp -= e.dmg; e.hitCd = 0.6; P.invuln = 0.42; e.flash = 0.16;
+      e.hitCd = 0.6; P.invuln = 0.42; e.flash = 0.16;
       S.fx.push({ kind: "pop", x: P.x, y: P.y - 26, t: 0, dur: 0.5, txt: `-${Math.round(e.dmg)}`, color: "#ff5b4d" });
       sfx(S, "hurt");
-      if (P.hp <= 0) { P.hp = 0; endGame(S, false); return; }
+      hurtPlayer(S, e.dmg);
+      if (S.over) return;
     }
   }
   S.enemies = S.enemies.filter((e) => !e.dead);
@@ -813,7 +856,8 @@ function update(dt) {
     }
   }
 
-  /* --- 特效 --- */
+  /* --- 特效 / 震屏衰减 --- */
+  if (S.shake > 0) S.shake = Math.max(0, S.shake - dt * 2.4);
   for (let i = S.fx.length - 1; i >= 0; i--) { S.fx[i].t += dt; if (S.fx[i].t >= S.fx[i].dur) S.fx.splice(i, 1); }
 
   /* --- 通关 --- */
@@ -845,7 +889,10 @@ function resize() {
 function render() {
   if (!cx || !S) return;
   const P = S.player;
-  const ox = W / 2 - P.x, oy = H / 2 - P.y;
+  // 爆发/重击震屏：用时间函数而非随机数——渲染与模拟严格分离，不破坏确定性
+  const shx = S.shake > 0 ? Math.sin(S.time * 93) * S.shake * 7 : 0;
+  const shy = S.shake > 0 ? Math.cos(S.time * 71) * S.shake * 5 : 0;
+  const ox = W / 2 - P.x + shx, oy = H / 2 - P.y + shy;
   cx.setTransform(DPR, 0, 0, DPR, 0, 0);
   cx.fillStyle = "#0d0b12"; cx.fillRect(0, 0, W, H);
   drawGrid(ox, oy);
@@ -948,6 +995,12 @@ function render() {
     } else if (f.kind === "pop") {
       cx.globalAlpha = 1 - k; cx.fillStyle = f.color; cx.font = "bold 14px system-ui";
       cx.textAlign = "center"; cx.fillText(f.txt, f.x + ox, f.y + oy - k * 26); cx.globalAlpha = 1;
+    } else if (f.kind === "flash") {
+      // 麦门爆发白闪：全屏盖一层，随 0.3s 衰减
+      cx.globalAlpha = 0.55 * (1 - k);
+      cx.fillStyle = "#ffffff";
+      cx.fillRect(0, 0, W, H);
+      cx.globalAlpha = 1;
     }
   }
   // 触屏摇杆（仅按住时显示）：底盘 + 柄 —— 给"跟手"一个可见的锚
@@ -1245,6 +1298,7 @@ const API = {
     time: S.time, over: S.over, won: S.won, kills: S.kills,
     level: S.player.level, hp: S.player.hp, maxHp: S.player.maxHp,
     enemies: S.enemies.length, bullets: S.bullets.length, gems: S.gems.length,
+    burstUsed: S.burstUsed,
     weapons: S.weapons.map((w) => `${w.id}:${w.lvl}`),
     passives: Object.assign({}, S.passives),
     pendingCards: S.levelup ? S.levelup.cards.length : 0

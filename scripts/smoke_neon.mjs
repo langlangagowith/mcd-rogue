@@ -93,8 +93,8 @@ const preferWeapon = (cards) => { const i = cards.findIndex((c) => c.type === "w
 const s4 = botRun(20261009, 300, preferWeapon);
 console.log(`     站桩存活 ${s3.time.toFixed(1)}s / 击杀 ${s3.kills} ｜ 走位存活 ${s4.time.toFixed(1)}s / 击杀 ${s4.kills} / Lv.${s4.level}`);
 ok(s4.time > s3.time, `走位活得比站桩久（${s4.time.toFixed(1)}s > ${s3.time.toFixed(1)}s）`);
-ok(s4.kills > s3.kills, `走位击杀更多（${s4.kills} > ${s3.kills}）`);
-ok(s4.time > 60, `走位能活过 60s：实际 ${s4.time.toFixed(1)}s`);
+// 击杀数不再是好口径：站桩那局靠「麦门爆发」白捡十几杀会污染对比 —— 改用生存线
+ok(s3.time < 60 && s4.time > 60, `站桩活不过 60s（${s3.time.toFixed(1)}s）而走位能（${s4.time.toFixed(1)}s）`);
 ok(s4.level >= 3, `走位能构筑起来：Lv.${s4.level}`);
 ok(s4.weapons.length >= 2, `已凑出多把武器：${s4.weapons.join(", ")}`);
 
@@ -557,6 +557,68 @@ console.log("\n17) 怪物威胁系统（特质 / 精英 / 出餐高峰 / 敌方�
     `150s 真实局四类特质怪都刷到过：${JSON.stringify(seenT)}`);
   ok(seenMini && seenEbullet && seenElite,
     `鸡块/敌弹/精英也都出现过（mini=${seenMini} ebullet=${seenEbullet} elite=${seenElite}）`);
+}
+
+console.log("\n18) 麦门爆发（血量首次跌破 20% 自动清场，每局一次）");
+{
+  const b = makeBootCtx();
+  b.T.reset(20261009, { autoStart: true });
+  const S = b.T.state();
+  const find = (n) => T.ARCH.find((a) => a.name.includes(n));
+  const plain = find("巨无霸");   // 无特质普通怪
+  const mkOn = (st, arch, x, y, extra) => {
+    const e = { x, y, r: arch.r, arch, hp: 60, maxHp: 60, speed: arch.speed,
+      dmg: arch.dmg, xp: 4, boss: false, elite: false, mini: false, trait: arch.trait,
+      dashCd: 9, dashT: 0, spitCd: 9, hitCd: 0, flash: 0, wob: 0, dead: false };
+    Object.assign(e, extra || {});
+    st.enemies.push(e);
+    return e;
+  };
+
+  ok(S.burstUsed === false, "开局：爆发未使用");
+
+  // —— 触发（黑盒路径：接触伤害）：21% 血被贴身怪打一下 ⇒ 清场 ——
+  S.enemies.length = 0;
+  S.player.x = 0; S.player.y = 0; S.player.hp = 21; S.player.invuln = 0;
+  const nearGuy = mkOn(S, plain, 10, 0, { speed: 0 });
+  const midGuy = mkOn(S, plain, 500, 0, { speed: 0 });
+  const farGuy = mkOn(S, plain, 900, 0, { speed: 0 });
+  b.T.update(DT);
+  ok(S.burstUsed === true, "血量首次跌破 20% ⇒ 自动触发麦门爆发");
+  ok(S.player.hp > 0 && S.player.hp <= 20, `玩家活着且血量在阈值内（hp=${S.player.hp.toFixed(1)}）`);
+  ok(nearGuy.dead && midGuy.dead, "视野内小怪（10px / 500px）被秒杀");
+  ok(!farGuy.dead, "视野外（900px）的怪不受影响");
+  ok(S.fx.some((f) => f.kind === "flash") && S.fx.some((f) => f.kind === "ring"), "爆发伴随白闪 + 冲击波");
+  ok(S.shake > 0, `触发瞬间震屏（shake=${S.shake.toFixed(2)}）`);
+
+  // —— 每局仅一次：再次跌血不再清场 ——
+  S.player.invuln = 0;
+  S.player.hp = 30;
+  const again = mkOn(S, plain, 10, 0, { speed: 0 });
+  b.T.update(DT);
+  ok(!again.dead && S.burstUsed === true, "第二次跌血不再触发（每局仅一次）");
+  ok(S.player.hp > 0 && S.player.hp < 30, `这次只吃普通伤害（hp=${S.player.hp.toFixed(1)}）`);
+
+  // —— BOSS 不秒杀只吃重伤；分裂怪不分裂、辣翅不反炸（quiet 模式） ——
+  b.T.reset(20261010, { autoStart: true });
+  const S2 = b.T.state();
+  S2.enemies.length = 0;
+  S2.player.x = 0; S2.player.y = 0; S2.player.hp = 21; S2.player.invuln = 0;
+  const boss = mkOn(S2, plain, 300, 0, { boss: true, hp: 3000, maxHp: 3000, speed: 0 });
+  mkOn(S2, find("麦乐鸡"), 400, 60, { speed: 0 });
+  mkOn(S2, find("麦辣鸡翅"), 90, 0, { speed: 0 });     // 若爆炸未被抑制，玩家在 98px 内会再吃 9 点
+  mkOn(S2, plain, 10, 0, { speed: 0 });                 // 触发用贴身怪
+  b.T.update(DT);
+  ok(S2.burstUsed === true, "新一局：爆发重置后再次触发");
+  ok(boss.hp === 2680 && !boss.dead, `BOSS 不被秒杀，只吃 320 固定伤害（hp=${boss.hp}）`);
+  ok(!S2.enemies.some((e) => e.mini), "被爆死的麦乐鸡不分裂（quiet 抑制）");
+  ok(!S2.over && Math.abs(S2.player.hp - (21 - plain.dmg)) < 0.01,
+    `被爆死的辣翅不反炸玩家（hp=${S2.player.hp.toFixed(1)}，恰好只有一次普通伤害）`);
+
+  // —— 渲染路径：白闪/震屏/冲击波 不崩 ——
+  let boom = null;
+  try { b.T.render(); } catch (e) { boom = e; }
+  ok(!boom, "爆发后渲染（白闪/震屏/冲击波）无异常");
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
