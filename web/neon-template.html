@@ -128,8 +128,10 @@
       <span id="seedTag" class="tag"></span>
     </div>
     <div class="note">
-      敌人不是瞎编的：每种餐品的<b>血量、体型、速度</b>都由麦当劳官方营养数据（热量）派生，
-      越顶饱的越肉、越大、越慢。数据来自本项目真实调用的 MCP 接口。
+      敌人不是瞎编的：每种餐品的<b>血量、体型、速度</b>都由麦当劳官方营养数据（热量）派生
+      （数据来自本项目真实调用的 MCP 接口），越顶饱的越肉、越大、越慢。<br>
+      <b>看立绘识危险</b>：薯条<b>会冲刺</b>、麦乐鸡倒下<b>会分裂</b>、辣翅倒下<b>会炸</b>、
+      饮料咖啡<b>会喷弹</b>——每隔 45 秒还有一波<b>出餐高峰</b>（金边怪是精英，更肉更值）。
     </div>
   </div>
 </div>
@@ -179,7 +181,7 @@
    ========================================================================= */
 
 const DATA = /*__NEON_DATA__*/;
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 
 /* 食物立绘：与出餐口共用同一批素材（构建期 base64 内联，运行时不碰网络）。
    加载失败 / 缺图 / 老内核无 Image 时，渲染自动回退为色块圆 —— 视觉不塌。 */
@@ -227,6 +229,12 @@ const catColor = (c) => CAT_COLOR[c] || "#b6a9ff";
 
 /* --------------------------- 由营养数据派生 --------------------------- */
 // 热量越高 ⇒ 越肉、越大、越慢、给的经验越多（这就是"官方数据驱动设计"）
+/* 敌人"吃法"（特质）：由归类后的立绘 slug 决定 —— **看立绘识危险**，不用背名字。
+   麦乐鸡一盒好几块（倒下分裂）/ 薯条撒了跑得快（冲刺）/ 辣翅辣得上头（倒下也溅你）/
+   饮料·咖啡洒一地（远程喷弹）。 */
+const TRAIT_BY_SLUG = { nuggets: "split", fries: "dash", wings: "boom", cola: "spit", coffee: "spit" };
+const TRAIT_NAME = { split: "会分裂", dash: "会冲刺", boom: "会炸", spit: "会喷" };
+
 function deriveArchetypes(foods) {
   const out = [], seen = new Set();
   for (const f of foods) {
@@ -235,13 +243,14 @@ function deriveArchetypes(foods) {
     const kcal = Math.max(20, f.k | 0);
     out.push({
       name: f.n, cat: f.c || "", kcal,
-      hp: 6 + kcal / 12,
+      hp: 7 + kcal / 10,                             // 比"一枪一个"更耐打：怪物不再是血包
       r: clamp(8 + kcal / 70, 9, 26),
-      speed: clamp(78 - kcal / 14, 26, 72),
-      dmg: clamp(4 + kcal / 90, 4, 14),
+      speed: clamp(86 - kcal / 15, 32, 86),          // 上限 72→86：轻的怪真能追人（仍慢于玩家，风筝可行）
+      dmg: clamp(5 + kcal / 75, 5, 17),              // 4~14 → 5~17
       xp: 2 + Math.floor(kcal / 100),
       color: catColor(f.c),
-      slug: f.s || ""        // 食物立绘（构建期由 slug_for 派生，与出餐口同一口径）
+      slug: f.s || "",        // 食物立绘（构建期由 slug_for 派生，与出餐口同一口径）
+      trait: TRAIT_BY_SLUG[f.s] || null
     });
   }
   return out;
@@ -357,10 +366,10 @@ function emptyState(seed) {
   return {
     version: VERSION, seed, rng: mulberry32(seed),
     time: 0, started: false, over: false, won: false, paused: false, levelup: null,
-    kills: 0, nextBossAt: BOSS_EVERY, spawnTimer: 1.4, survivedBest: 0,
+    kills: 0, nextBossAt: BOSS_EVERY, nextPeakAt: 45, spawnTimer: 1.4, survivedBest: 0,
     player: { x: 0, y: 0, r: 14, hp: 100, maxHp: 100, speed: 212, pickup: 78,
       level: 1, xp: 0, xpNeed: xpNeedFor(1), invuln: 0, face: -Math.PI / 2, dash: 0 },
-    enemies: [], bullets: [], gems: [], drops: [], zones: [], fx: [], orbits: [],
+    enemies: [], bullets: [], ebullets: [], gems: [], drops: [], zones: [], fx: [], orbits: [],
     // 开局必须带一把武器：否则杀不了→拿不到经验→永远升不了级（死循环）
     weapons: [{ id: "ketchup", lvl: 1, timer: 0.25, orbit: 0 }], passives: { dmg: 0, cdr: 0, spd: 0, hp: 0, pickup: 0, fortune: 0 },
     spawnMul: 1, pickQueue: [], stats: { dealt: 0 }
@@ -406,19 +415,23 @@ function pickArchetype(S) {
   for (let i = 0; i < ARCH.length; i++) { x -= w[i]; if (x <= 0) return ARCH[i]; }
   return ARCH[ARCH.length - 1];
 }
-function spawnEnemy(S, arch, boss) {
+function spawnEnemy(S, arch, boss, a0, R0) {
   if (S.enemies.length >= MAX_ENEMIES && !boss) return;
-  const a = S.rng() * TAU;
-  const R = 520 + S.rng() * 160;
+  const a = a0 === undefined ? S.rng() * TAU : a0;
+  const R = R0 === undefined ? 520 + S.rng() * 160 : R0;
   const hpScale = 1 + S.time / 68;
+  // 精英：40s 后小概率出，金边更肉更值（点缀，不改变行为）
+  const elite = !boss && S.time > 40 && S.rng() < Math.min(0.04 + S.time / 900, 0.1);
   const e = {
     x: S.player.x + Math.cos(a) * R, y: S.player.y + Math.sin(a) * R,
-    r: arch.r * (boss ? 2 : 1), arch,
-    hp: arch.hp * hpScale * (boss ? 22 : 1), maxHp: 0,
+    r: arch.r * (boss ? 2 : 1) * (elite ? 1.15 : 1), arch,
+    hp: arch.hp * hpScale * (boss ? 22 : 1) * (elite ? 2.6 : 1), maxHp: 0,
     speed: arch.speed * (boss ? 0.72 : 1) * (0.92 + S.rng() * 0.16),
     dmg: arch.dmg * (boss ? 1.5 : 1),
-    xp: arch.xp * (boss ? 18 : 1),
-    boss: !!boss, hitCd: 0, flash: 0, wob: S.rng() * TAU
+    xp: arch.xp * (boss ? 18 : 1) * (elite ? 2 : 1),
+    boss: !!boss, elite, mini: false, trait: arch.trait,
+    dashCd: 1.2 + S.rng() * 1.6, dashT: 0, spitCd: 1.0 + S.rng() * 1.6,
+    hitCd: 0, flash: 0, wob: S.rng() * TAU
   };
   e.maxHp = e.hp;
   S.enemies.push(e);
@@ -443,6 +456,35 @@ function hurtEnemy(S, e, dmg, crit) {
 }
 function killEnemy(S, e) {
   e.dead = true; S.kills++;
+  // 分裂（麦乐鸡盒）：倒下散出一地小鸡块——清不干净会被围
+  if (e.trait === "split" && !e.mini && S.enemies.length < MAX_ENEMIES - 4) {
+    for (let i = 0; i < 3; i++) {
+      const a = S.rng() * TAU;
+      const m = {
+        x: e.x + Math.cos(a) * 16, y: e.y + Math.sin(a) * 16,
+        r: Math.max(7, e.r * 0.52), arch: e.arch,
+        hp: Math.max(4, e.maxHp * 0.2), maxHp: 0,
+        speed: e.speed * 1.3, dmg: e.dmg * 0.55, xp: Math.max(1, e.xp * 0.3),
+        boss: false, elite: false, mini: true, trait: null,
+        dashCd: 9, dashT: 0, spitCd: 9, hitCd: 0, flash: 0.12, wob: S.rng() * TAU
+      };
+      m.maxHp = m.hp;
+      S.enemies.push(m);
+    }
+    S.fx.push({ kind: "pop", x: e.x, y: e.y - e.r, t: 0, dur: 0.55, txt: "裂开！", color: "#ffd93d" });
+  }
+  // 爆炸（辣翅类）：倒下时辣你一下——别贴着它打
+  if (e.trait === "boom") {
+    const R = 84;
+    S.fx.push({ kind: "ring", x: e.x, y: e.y, r: 12, R, t: 0, dur: 0.4, color: "#ff8a3d" });
+    if (S.player.invuln <= 0 && Math.hypot(S.player.x - e.x, S.player.y - e.y) < R + S.player.r) {
+      const dmg = 9;
+      S.player.hp -= dmg; S.player.invuln = 0.42;
+      S.fx.push({ kind: "pop", x: S.player.x, y: S.player.y - 26, t: 0, dur: 0.5, txt: `-${dmg}`, color: "#ff5b4d" });
+      sfx(S, "hurt");
+      if (S.player.hp <= 0) { S.player.hp = 0; endGame(S, false); return; }
+    }
+  }
   const n = clamp(Math.round(e.xp / 3), 1, 5);
   for (let i = 0; i < n; i++) {
     const a = S.rng() * TAU, s = 30 + S.rng() * 70;
@@ -616,6 +658,15 @@ function update(dt) {
     spawnEnemy(S, BOSS_ARCH, true);
     S.fx.push({ kind: "pop", x: P.x, y: P.y - 70, t: 0, dur: 1.2, txt: "BOSS 来了", color: "#ff5b4d" });
   }
+  /* --- 出餐高峰：每 45s 一波环形加压（不止 BOSS 才有紧张感） --- */
+  if (S.time >= S.nextPeakAt) {
+    S.nextPeakAt += 45;
+    const n = Math.min(6 + Math.floor(S.time / 45) * 2, 16);
+    for (let i = 0; i < n; i++) {
+      spawnEnemy(S, pickArchetype(S), false, (i / n) * TAU + (S.rng() - 0.5) * 0.5, 470 + S.rng() * 90);
+    }
+    toast("出餐高峰！");
+  }
 
   /* --- 武器开火 --- */
   const cdm = Math.pow(0.92, S.passives.cdr);
@@ -665,6 +716,20 @@ function update(dt) {
     }
   }
 
+  /* --- 敌方子弹（饮料怪喷的，可被走位躲开） --- */
+  for (let i = S.ebullets.length - 1; i >= 0; i--) {
+    const b = S.ebullets[i];
+    b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
+    if (b.life <= 0) { S.ebullets.splice(i, 1); continue; }
+    if (P.invuln <= 0 && Math.hypot(b.x - P.x, b.y - P.y) < P.r + b.r) {
+      P.hp -= b.dmg; P.invuln = 0.42;
+      S.fx.push({ kind: "pop", x: P.x, y: P.y - 26, t: 0, dur: 0.5, txt: `-${b.dmg}`, color: "#ff5b4d" });
+      sfx(S, "hurt");
+      S.ebullets.splice(i, 1);
+      if (P.hp <= 0) { P.hp = 0; endGame(S, false); return; }
+    }
+  }
+
   /* --- 盐圈 --- */
   for (let i = S.zones.length - 1; i >= 0; i--) {
     const z = S.zones[i]; z.t += dt; z.tick -= dt;
@@ -678,12 +743,34 @@ function update(dt) {
     if (z.t >= z.dur) S.zones.splice(i, 1);
   }
 
-  /* --- 敌人追击 / 接触伤害 --- */
+  /* --- 敌人追击（含特质行为）/ 接触伤害 --- */
   for (const e of S.enemies) {
     if (e.dead) continue;
     e.wob += dt * 3;
     const dx = P.x - e.x, dy = P.y - e.y, d = Math.hypot(dx, dy) || 1;
-    e.x += (dx / d) * e.speed * dt; e.y += (dy / d) * e.speed * dt;
+    let spd = e.speed;
+    // 冲刺（薯条类）：贴近就"撒出来"猛冲一段——跑得比人快，站桩/走神就吃它
+    if (e.trait === "dash") {
+      if (e.dashT > 0) { e.dashT -= dt; spd *= 2.75; }
+      else {
+        e.dashCd -= dt;
+        if (e.dashCd <= 0 && d < 460) { e.dashT = 0.55; e.dashCd = 2.4 + S.rng() * 1.3; }
+      }
+    }
+    // 喷弹（饮料/咖啡类）：中距离周期吐一发，逼你持续移动
+    if (e.trait === "spit") {
+      e.spitCd -= dt;
+      if (e.spitCd <= 0 && d < 480) {
+        e.spitCd = 2.2 + S.rng() * 1.5;
+        const a = Math.atan2(dy, dx);
+        S.ebullets.push({
+          x: e.x + Math.cos(a) * (e.r + 4), y: e.y + Math.sin(a) * (e.r + 4),
+          vx: Math.cos(a) * 165, vy: Math.sin(a) * 165, r: 6, dmg: 8, life: 3.2
+        });
+        e.flash = Math.max(e.flash, 0.14);
+      }
+    }
+    e.x += (dx / d) * spd * dt; e.y += (dy / d) * spd * dt;
     if (e.flash > 0) e.flash -= dt;
     if (e.hitCd > 0) e.hitCd -= dt;
     if (d < e.r + P.r && e.hitCd <= 0 && P.invuln <= 0) {
@@ -775,18 +862,42 @@ function render() {
     cx.font = `${dp.r * 2}px serif`; cx.textAlign = "center"; cx.textBaseline = "middle";
     cx.fillText(dp.kind === "heart" ? "❤️" : "🧲", dp.x + ox, dp.y + oy);
   }
+  // 敌方子弹（饮料怪喷的）：橙心弹，走位可躲
+  for (const b of S.ebullets) {
+    cx.beginPath(); cx.arc(b.x + ox, b.y + oy, b.r + 1.5, 0, TAU);
+    cx.fillStyle = "rgba(255,112,67,.3)"; cx.fill();
+    cx.beginPath(); cx.arc(b.x + ox, b.y + oy, b.r, 0, TAU);
+    cx.fillStyle = "#ff7043"; cx.fill();
+    cx.strokeStyle = "rgba(255,255,255,.75)"; cx.lineWidth = 1.2; cx.stroke();
+  }
   // 敌人：真实食物立绘（与出餐口同一批素材；缺图/未加载时回退为色块圆，视觉不塌）
   for (const e of S.enemies) {
     const x = e.x + ox, y = e.y + oy;
     const sp = spriteImgs[e.arch.slug];
     const el = (sp && sp.complete && sp.el) ? sp.el : null;
     if (el) {
+      // 冲刺拖尾（薯条类冲起来时）：朝移动反方向拖三节淡影
+      if (e.dashT > 0) {
+        const ta = Math.atan2(P.y - e.y, P.x - e.x) + Math.PI;
+        for (let k = 1; k <= 3; k++) {
+          cx.globalAlpha = 0.22 / k;
+          cx.beginPath();
+          cx.arc(x + Math.cos(ta) * k * 15, y + Math.sin(ta) * k * 15, e.r * (1 - k * 0.16), 0, TAU);
+          cx.fillStyle = "#ffe066"; cx.fill();
+        }
+        cx.globalAlpha = 1;
+      }
       if (e.boss) {   // Boss 底光：体下金圈 —— 远看就知道是大家伙
         cx.beginPath(); cx.arc(x, y, e.r * 1.5, 0, TAU);
         cx.fillStyle = "rgba(255,199,44,.18)"; cx.fill();
       }
       const sz = e.r * (e.boss ? 3.0 : 2.6);   // 立绘含透明边 ⇒ 视觉尺寸略大于碰撞半径
       cx.drawImage(el, x - sz / 2, y - sz / 2, sz, sz);
+      // 精英金边：更肉更值钱的那只
+      if (e.elite) {
+        cx.beginPath(); cx.arc(x, y, e.r * 1.3, 0, TAU);
+        cx.strokeStyle = "rgba(255,214,64,.8)"; cx.lineWidth = 2; cx.stroke();
+      }
       if (e.flash > 0) {   // 受击闪白：叠一层半透明白（立绘不能整体染白，用圆罩打亮）
         cx.globalAlpha = 0.62;
         cx.beginPath(); cx.arc(x, y, e.r * 0.92, 0, TAU);
@@ -1126,6 +1237,10 @@ const API = {
   render: () => render(),
   choose: (i) => choose(i),
   state: () => S,
+  // 供无头测试直接驱动伤害/生成路径（不经过渲染）
+  spawnEnemy: (arch, boss) => { if (!S || !arch) return null; spawnEnemy(S, arch, !!boss); return S.enemies[S.enemies.length - 1]; },
+  hurtEnemy: (e, dmg) => { if (S) hurtEnemy(S, e, dmg); },
+  killEnemy: (e) => { if (S && e && !e.dead) killEnemy(S, e); },
   snapshot: () => S && ({
     time: S.time, over: S.over, won: S.won, kills: S.kills,
     level: S.player.level, hp: S.player.hp, maxHp: S.player.maxHp,

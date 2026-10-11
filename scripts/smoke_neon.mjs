@@ -430,5 +430,134 @@ console.log("\n16) 产物体积（立绘内联后的预算）");
   ok(bytes < 300 * 1024, `产物 ${(bytes / 1024).toFixed(0)}KB < 300KB 预算（弱网也能几秒打开）`);
 }
 
+console.log("\n17) 怪物威胁系统（特质 / 精英 / 出餐高峰 / 敌方子弹）");
+{
+  // —— 特质按立绘归类（看立绘识危险）——
+  const archOf = (slug) => T.ARCH.find((a) => a.slug === slug) || {};
+  ok(archOf("nuggets").trait === "split", "麦乐鸡类（nuggets）→ 分裂（一盒散一地）");
+  ok(archOf("fries").trait === "dash", "薯条类（fries）→ 冲刺（撒出来跑得快）");
+  ok(archOf("wings").trait === "boom", "辣翅类（wings）→ 死亡爆炸");
+  ok(archOf("cola").trait === "spit" && archOf("coffee").trait === "spit", "饮料/咖啡（cola/coffee）→ 喷弹");
+  ok(archOf("burger-double").trait === null && archOf("muffin").trait === null, "汉堡/麦满分类 → 无特质（普通怪）");
+  ok((T.ARCH.find((a) => a.name.includes("麦乐鸡")) || {}).slug === "nuggets", "名字抽查：「麦乐鸡」确实归入 nuggets");
+  const byTrait = { split: 0, dash: 0, boom: 0, spit: 0 };
+  T.ARCH.forEach((a) => { if (a.trait) byTrait[a.trait]++; });
+  ok(byTrait.split >= 1 && byTrait.dash >= 1 && byTrait.boom >= 1 && byTrait.spit >= 1,
+    `四类特质各至少 1 种：${JSON.stringify(byTrait)}`);
+  ok(T.ARCH.every((a) => a.trait === null || ["split", "dash", "boom", "spit"].includes(a.trait)), "特质取值全部合法");
+
+  const b = makeBootCtx();
+  b.T.reset(20261009, { autoStart: true });
+  const S = b.T.state();
+  const find = (n) => T.ARCH.find((a) => a.name.includes(n));
+  const mk = (arch, x, y, extra) => {
+    const e = { x, y, r: arch.r, arch, hp: 60, maxHp: 60, speed: arch.speed,
+      dmg: 5, xp: 4, boss: false, elite: false, mini: false, trait: arch.trait,
+      dashCd: 0.5, dashT: 0, spitCd: 9, hitCd: 0, flash: 0, wob: 0, dead: false };
+    Object.assign(e, extra || {});
+    S.enemies.push(e);
+    return e;
+  };
+
+  // —— 分裂：倒下散 3 块；鸡块不再分裂、体型血量缩水 ——
+  S.enemies.length = 0;
+  const sp = mk(find("麦乐鸡"), 400, 0);
+  b.T.killEnemy(sp);
+  const minis = S.enemies.filter((e) => e.mini);
+  ok(minis.length === 3, `麦乐鸡倒下分裂出 3 块小鸡块（实际 ${minis.length}）`);
+  ok(minis.every((m) => m.trait === null && m.r < sp.r && m.hp <= sp.maxHp * 0.25),
+    "小鸡块：不再分裂、体型与血量都缩水");
+
+  // —— 爆炸：贴脸杀会被溅伤；远处安全 ——
+  S.enemies.length = 0; S.player.x = 0; S.player.y = 0;
+  S.player.hp = 100; S.player.invuln = 0;
+  const bo = mk(find("麦辣鸡翅"), 60, 0, { trait: "boom" });
+  b.T.killEnemy(bo);
+  ok(S.player.hp === 91, `辣翅在 60px 处倒下炸掉 9 血（hp=${S.player.hp}）`);
+  S.player.invuln = 0;
+  const bo2 = mk(find("麦辣鸡翅"), 300, 0, { trait: "boom" });
+  b.T.killEnemy(bo2);
+  ok(S.player.hp === 91, "300px 外的爆炸不伤人（只有贴脸才危险）");
+
+  // —— 喷弹：进射程周期吐弹；弹可命中玩家 ——
+  S.enemies.length = 0; S.ebullets.length = 0;
+  mk(find("可乐"), 300, 0, { spitCd: 0.05 });
+  let sawBullet = false;
+  for (let i = 0; i < 90 && !sawBullet; i++) { b.T.update(DT); if (S.ebullets.length > 0) sawBullet = true; }
+  ok(sawBullet, "饮料怪进入射程后喷出敌方子弹");
+  S.enemies.length = 0; S.ebullets.length = 0;
+  S.player.hp = 100; S.player.invuln = 0;
+  S.ebullets.push({ x: 10, y: 0, vx: 0, vy: 0, r: 6, dmg: 8, life: 2 });
+  b.T.update(DT);
+  ok(S.player.hp === 92 && S.ebullets.length === 0, `敌方子弹命中玩家扣 8 血并消失（hp=${S.player.hp}）`);
+
+  // —— 冲刺：出现远超基础速度的峰值 ——
+  S.enemies.length = 0; S.ebullets.length = 0;
+  S.player.hp = 100; S.player.invuln = 0;
+  const da = mk(find("薯条"), 320, 0, { dashCd: 0.1 });
+  let maxV = 0, pv = { x: da.x, y: da.y };
+  for (let i = 0; i < 100; i++) {
+    b.T.update(DT);
+    const v = Math.hypot(da.x - pv.x, da.y - pv.y) / DT;
+    if (v > maxV) maxV = v;
+    pv = { x: da.x, y: da.y };
+  }
+  ok(maxV > da.speed * 2, `薯条冲刺峰值 ${Math.round(maxV)}px/s > 基础 ${Math.round(da.speed)}px/s 的 2 倍`);
+
+  // —— 出餐高峰：45s 一波环形加压 ——
+  S.enemies.length = 0; S.ebullets.length = 0;
+  S.time = 44.5; S.nextPeakAt = 45; S.spawnTimer = 99;
+  for (let i = 0; i < 60; i++) b.T.update(DT);
+  ok(S.nextPeakAt === 90, "出餐高峰触发后，下一波排到 90s");
+  ok(S.enemies.length >= 6, `高峰一口刷出 ${S.enemies.length} 只（≥6）`);
+
+  // —— 精英：时间拉高后按概率产出（确定性 rng 抽样） ——
+  b.T.reset(777, { autoStart: true });
+  const s2 = b.T.state(); s2.time = 300;
+  let eliteN = 0;
+  for (let i = 0; i < 120; i++) { const e = b.T.spawnEnemy(T.ARCH[0], false); if (e && e.elite) eliteN++; }
+  ok(eliteN >= 3, `高时段 120 次抽样出 ${eliteN} 只精英（≥3）`);
+
+  // —— 集成扫描：真实局里四类特质怪 + 鸡块 + 敌弹 + 精英 都会出现 ——
+  const c = makeBootCtx();
+  c.T.reset(424242, { autoStart: true });
+  const bot2 = (st2, i) => {
+    const P = st2.player;
+    if (i % 4 !== 0) return;
+    let near = null, nd = Infinity;
+    for (const e of st2.enemies) { const d = (e.x - P.x) ** 2 + (e.y - P.y) ** 2; if (d < nd) { nd = d; near = e; } }
+    let tx = null, ty = null;
+    if (near && nd < 130 * 130) {
+      const dx = P.x - near.x, dy = P.y - near.y, m = Math.hypot(dx, dy) || 1;
+      tx = P.x + (dx / m) * 240; ty = P.y + (dy / m) * 240;
+    } else {
+      let g = null, gd = Infinity;
+      for (const gg of st2.gems) { const d = (gg.x - P.x) ** 2 + (gg.y - P.y) ** 2; if (d < gd) { gd = d; g = gg; } }
+      if (g) { tx = g.x; ty = g.y; }
+    }
+    if (tx !== null) { c.T.pointer.active = true; c.T.pointer.x = tx; c.T.pointer.y = ty; }
+  };
+  const seenT = { split: 0, dash: 0, boom: 0, spit: 0 };
+  let seenMini = false, seenEbullet = false, seenElite = false;
+  for (let i = 0; i < 60 * 150; i++) {
+    const st = c.T.state();
+    bot2(st, i);
+    c.T.update(DT);
+    if (st.levelup) c.T.choose(0);
+    for (const e of st.enemies) {
+      if (e.trait) seenT[e.trait]++;
+      if (e.mini) seenMini = true;
+      if (e.elite) seenElite = true;
+    }
+    if (st.ebullets.length) seenEbullet = true;
+    if (st.over) break;
+  }
+  c.T.pointer.active = false;
+  ok(seenT.split > 0 && seenT.dash > 0 && seenT.boom > 0 && seenT.spit > 0,
+    `150s 真实局四类特质怪都刷到过：${JSON.stringify(seenT)}`);
+  ok(seenMini && seenEbullet && seenElite,
+    `鸡块/敌弹/精英也都出现过（mini=${seenMini} ebullet=${seenEbullet} elite=${seenElite}）`);
+}
+
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
