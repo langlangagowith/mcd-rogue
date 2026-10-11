@@ -92,6 +92,17 @@
     border:1px solid rgba(255,210,77,.5);display:block}
   #dealCoupons .cp div{font-size:10px;color:var(--dim);line-height:1.3;margin-top:4px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* 结算页「真实奖池」——游戏与真实抽奖活动的连接点（只读展示，不执行抽奖） */
+  #prizeBox{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;
+    padding:10px;margin:10px 0 0}
+  #prizeBox.off{display:none}
+  #prizeWall{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:8px}
+  #prizeWall .pw{text-align:center;min-width:0}
+  #prizeWall img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;background:#241a2e;
+    border:1px solid rgba(255,210,77,.25);display:block}
+  #prizeWall .pn{font-size:9.5px;color:#cfc5e2;line-height:1.3;margin-top:3px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #prizeSub{font-size:11px;color:var(--dim);line-height:1.65;margin-top:8px}
   /* 结算页的 Star 引导：一行，不抢戏（头部项目 README 都不写"求星"，但短视频来的
      普通玩家不看 README ⇒ 游戏里得直说一次） */
   .starlink{display:block;text-align:center;margin-top:12px;font-size:12px;font-weight:700;
@@ -211,6 +222,13 @@
       <div id="dealList"></div>
       <div id="dealCoupons"></div>
     </div>
+    <!-- 真实奖池：麦麦积分抽奖的真实奖品墙（官方 MCP 快照）。
+         只展示奖池，不执行抽奖 —— 抽奖是真实扣积分的写操作。 -->
+    <div id="prizeBox" class="off">
+      <div class="pt-lab" id="prizeLab">真实奖池</div>
+      <div id="prizeWall"></div>
+      <div id="prizeSub"></div>
+    </div>
     <img id="reportImg" alt="战报">
     <div class="btns">
       <button class="primary" id="btnAgain">再来一局</button>
@@ -256,6 +274,11 @@ const SHARE_BASE = /*__SHAREBASE__*/;
    运行时不碰网络 ⇒ 保住"离线可玩 / 零依赖"）。券图进 canvas 也不存在 CORS 问题。 */
 const COUPONS = /*__COUPONS__*/;
 const POSTER = /*__POSTER__*/;
+/* 真实奖池：麦麦积分抽奖的真实奖品（query-lottery-info 快照，仅展示不执行 —— 抽奖是
+   真实扣积分的写操作）。LOTTERY_IMGS 是「引用键 → 图」字典：多个奖品可能共用同一张
+   官方图（实测 10 项共用 8 张），分开存避免同一段 base64 在奖品数组里重复内联。 */
+const LOTTERY = /*__LOTTERY__*/;
+const LOTTERY_IMGS = /*__LOTTERYIMGS__*/;
 
 /* ------------------------------ 基础工具 ------------------------------ */
 
@@ -1376,6 +1399,39 @@ function renderDeals() {
   }
 }
 
+/** 结算页「真实奖池」：麦麦积分抽奖的真实奖品墙（官方 MCP 快照）。
+    与「今日优惠」相邻 —— 玩家刚在游戏里抢完虚拟券，这里看到真实世界能抽什么。
+    只展示；抽奖（draw-lottery）是真实扣积分的写操作，游戏永远不执行。 */
+function renderPrizeWall() {
+  const box = $("prizeBox");
+  if (!box) return;
+  const lt = LOTTERY;
+  const prizes = ((lt && lt.prizes) || []).slice(0, 10);
+  if (!prizes.length) { box.classList.add("off"); return; }
+  box.classList.remove("off");
+
+  const lab = $("prizeLab");
+  if (lab && lt.activityName) lab.textContent = "真实奖池 · " + lt.activityName;
+
+  const wall = $("prizeWall");
+  if (wall) {
+    wall.innerHTML = prizes.map((p) => {
+      const img = (LOTTERY_IMGS || {})[p.f] || "";
+      return '<div class="pw"><img src="' + img + '" alt="' + esc(p.n) + '" loading="lazy">'
+        + '<div class="pn">' + esc(p.n) + "</div></div>";
+    }).join("");
+  }
+  const sub = $("prizeSub");
+  if (sub) {
+    const got = S.couponGot.length;
+    const pt = lt.drawPoint ? lt.drawPoint + " 积分抽一次" : "积分抽奖";
+    sub.innerHTML = "这局你抢到 " + got + " 张券 · 真实世界 " + esc(pt)
+      + "，" + prizes.length + " 样真货都在池子里"
+      + (lt.statusText ? "（活动" + esc(lt.statusText) + "）" : "")
+      + "<br>数据来自麦当劳官方 MCP · 抽奖入口在麦当劳 App";
+  }
+}
+
 function renderEnd() {
   const rank = rankOf(S.score);
   const t = $("endTitle");
@@ -1387,6 +1443,7 @@ function renderEnd() {
   const note = $("endNote");
   if (note) note.textContent = "锐评：" + verdict();
   renderDeals();
+  renderPrizeWall();
   drawReport();
 }
 
@@ -1840,7 +1897,7 @@ function boot() {
 
 const API = {
   VERSION, CFG, FOODS, SPRITES, CAT_COLOR, RANKS,
-  COMBOS, DEALS, COUPONS, POSTER, couponImgs, DAY, isDailySeed, dayTagOf, seedNoteText,
+  COMBOS, DEALS, COUPONS, POSTER, couponImgs, LOTTERY, LOTTERY_IMGS, DAY, isDailySeed, dayTagOf, seedNoteText,
   REPO_QR, REPO_URL, SHARE_BASE, shareUrl,
   keys, pointer,
   reset: (seed, opt) => { if (opt && opt.autoStart) beginGame(seed); else startGame(seed); return S; },

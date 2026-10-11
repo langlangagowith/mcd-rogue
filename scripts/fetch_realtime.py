@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""拉取「真实感层」素材：官方券图 + 当日活动海报（一次性的网络管线，不进主构建）。
+"""拉取「真实感层」素材：官方券图 + 当日活动海报 + 积分抽奖真实奖池（一次性的网络管线，不进主构建）。
 
 产出：
-  data/realtime.json       券清单（券名 + 本地文件名）与当日活动（日期/标题/摘要 + 本地文件名）
+  data/realtime.json       券清单（券名 + 本地文件名）与当日活动（日期/标题/摘要 + 本地文件名），
+                           以及真实抽奖池（活动规则 + 奖品清单，均来自 query-lottery-info）
   assets/coupons/raw/*.png 券图原图
   assets/poster/raw/poster.jpg  当日活动海报原图
+  assets/prizes/raw/*.png  奖池奖品的官方图原图（与券图做 URL 级去重，重复的复用同一文件）
 
 为什么离线快照而不是运行时外链：
   - COS 券图 URL 带签名（q-sign-time ≈ 两周），线上放久了会 403；
@@ -13,7 +15,7 @@
   ⇒ 这里只做「拉一次 → 压缩 → 内联」，运行时不碰网络。
 
 用法：
-    python scripts/fetch_realtime.py            # 拉券 + 当日活动
+    python scripts/fetch_realtime.py            # 拉券 + 当日活动 + 奖池
     python scripts/fetch_realtime.py --max 4    # 只要前 4 张券
 """
 
@@ -33,6 +35,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 RAW_COUPONS = os.path.join(ROOT, "assets", "coupons", "raw")
 RAW_POSTER = os.path.join(ROOT, "assets", "poster", "raw")
+RAW_PRIZES = os.path.join(ROOT, "assets", "prizes", "raw")
 REALTIME = os.path.join(DATA, "realtime.json")
 SNAPSHOT = os.path.join(DATA, "snapshot.json")
 
@@ -53,7 +56,7 @@ def download(url: str, dest: str) -> int:
     return len(blob)
 
 
-def fetch_coupons(max_n: int) -> list[dict]:
+def fetch_coupons(max_n: int, url_map: dict[str, str]) -> list[dict]:
     cli = MCPClient(_load_token())
     cli.initialize()
     res = cli.call_tool("available-coupons", {})
@@ -72,9 +75,60 @@ def fetch_coupons(max_n: int) -> list[dict]:
         except Exception as e:  # noqa: BLE001
             print(f"⚠ 券图下载失败，跳过「{name}」：{e}")
             continue
+        url_map[url] = slugify(i)
         out.append({"n": name, "f": slugify(i), "bytes": size})
         print(f"  券 {i} {name}  {size/1024:.0f} KB")
     return out
+
+
+def fetch_lottery(url_map: dict[str, str]) -> dict | None:
+    """拉「麦麦积分抽奖」的真实奖池（只读接口 query-lottery-info）。
+
+    与券图共享 URL 级去重池：多个奖品可能引用同一张官方图（实测 10 项共用 8 张），
+    重复 URL 直接复用已下载的文件，避免重复下载与重复内联。
+    注意：本函数只展示奖池，**不调用 draw-lottery**——抽奖是真实扣积分的写操作，
+    游戏展示层永远不执行它。
+    """
+    cli = MCPClient(_load_token())
+    cli.initialize()
+    res = cli.call_tool("query-lottery-info", {})
+    d = (res.get("structuredContent") or {}).get("data") or {}
+    prizes_raw = d.get("prizes") or []
+    if not prizes_raw:
+        print("⚠ 奖池为空（活动可能未开始），跳过")
+        return None
+    prizes = []
+    downloaded = 0
+    for p in prizes_raw:
+        name = (p.get("name") or "").strip()
+        url = (p.get("imageUrl") or "").strip()
+        if not name or not url:
+            continue
+        f = url_map.get(url)
+        if not f:
+            f = f"prize-{downloaded + 1}"
+            dest = os.path.join(RAW_PRIZES, f + ".png")
+            try:
+                size = download(url, dest)
+            except Exception as e:  # noqa: BLE001
+                print(f"⚠ 奖池图下载失败，跳过「{name}」：{e}")
+                continue
+            url_map[url] = f
+            downloaded += 1
+            print(f"  奖池图 {f} ← {name}  {size/1024:.0f} KB")
+        prizes.append({"n": name, "t": (p.get("typeText") or "").strip(), "f": f})
+    if not prizes:
+        return None
+    print(f"  奖池：{len(prizes)} 项奖品 · 去重后 {downloaded} 张新图"
+          f"（其余复用券图/同图）")
+    return {
+        "activityName": (d.get("activityName") or "").strip(),
+        "statusText": (d.get("activityStatusText") or "").strip(),
+        "drawPoint": str(d.get("drawPoint") or "").strip(),
+        "drawTypeText": (d.get("drawTypeText") or "").strip(),
+        "endTime": (d.get("endTime") or "").strip()[:10],
+        "prizes": prizes,
+    }
 
 
 def fetch_poster() -> dict | None:
@@ -117,25 +171,32 @@ def main() -> int:
 
     os.makedirs(RAW_COUPONS, exist_ok=True)
     os.makedirs(RAW_POSTER, exist_ok=True)
+    os.makedirs(RAW_PRIZES, exist_ok=True)
+
+    url_map: dict[str, str] = {}   # 图片 URL → 本地文件引用（券与奖池共享去重池）
 
     print("→ 拉真实优惠券 …")
-    coupons = fetch_coupons(args.max)
+    coupons = fetch_coupons(args.max, url_map)
     if not coupons:
         print("❌ 一张券都没拉到")
         return 1
     print("→ 拉当日活动海报 …")
     poster = fetch_poster()
+    print("→ 拉积分抽奖真实奖池 …")
+    lottery = fetch_lottery(url_map)
 
     payload = {
         "generatedAt": __import__("time").strftime("%Y-%m-%d %H:%M:%S"),
-        "source": "麦当劳中国 MCP：available-coupons + query-campaigns",
+        "source": "麦当劳中国 MCP：available-coupons + query-campaigns + query-lottery-info",
         "coupons": coupons,
         "poster": poster,
+        "lottery": lottery,
     }
     with open(REALTIME, "w", encoding="utf-8", newline="\n") as f:
         json.dump(payload, f, ensure_ascii=False, indent=1)
         f.write("\n")
-    print(f"✅ 已写出 {REALTIME}（券 {len(coupons)} 张 · 海报 {'有' if poster else '无'}）")
+    lp = f"奖池 {len(lottery['prizes'])} 项" if lottery else "奖池无"
+    print(f"✅ 已写出 {REALTIME}（券 {len(coupons)} 张 · 海报 {'有' if poster else '无'} · {lp}）")
     print("   下一步：python scripts/prepare_realtime.py")
     return 0
 

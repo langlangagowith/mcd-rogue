@@ -310,9 +310,11 @@ function makeBootCtx(winExtra, opts) {
   // HTML 里本来就存在的元素先建出来：桩不解析 HTML，缺了会让"元素应被填充"类断言
   // 在负向控制下直接 TypeError 而不是变红（假绿比崩溃更危险）。
   for (const id of ["posterBox", "posterImg", "posterTitle", "posterDesc", "posterLab", "btnFree",
-                    "dealBox", "dealList", "dealCoupons"]) mkEl(id);
+                    "dealBox", "dealList", "dealCoupons",
+                    "prizeBox", "prizeLab", "prizeWall", "prizeSub"]) mkEl(id);
   els.get("posterBox").className = "off";   // 与模板里的初始类一致（有数据才摘掉）
   els.get("dealBox").classList.add("off");  // 今日优惠：打完一局才解锁（初始收起，与模板 class 一致）
+  els.get("prizeBox").classList.add("off"); // 真实奖池：同上，初始收起（与模板 class 一致）
 
   const ctx = vm.createContext({
     console,
@@ -329,7 +331,13 @@ function makeBootCtx(winExtra, opts) {
     location: { search: (opts && opts.search) || "", href: "" }
   });
   let err = null;
-  try { vm.runInContext(js, ctx, { filename: "arcade.html(boot)" }); } catch (e) { err = e; }
+  let bootJs = js;
+  if (opts && opts.noLottery) {
+    // 负向控制：把真实奖池数据从产物里摘掉（模拟"接口那天没拉到"）
+    bootJs = bootJs.replace(/const LOTTERY = .+?;\n/, "const LOTTERY = null;\n");
+    if (bootJs === js) throw new Error("noLottery 替换失败：产物里没找到 LOTTERY 赋值行");
+  }
+  try { vm.runInContext(bootJs, ctx, { filename: "arcade.html(boot)" }); } catch (e) { err = e; }
   return { T: ctx.McChow, els, win, rec, err, opts: opts || {} };
 }
 
@@ -410,10 +418,12 @@ console.log("\n12) 产物静态自检");
   ok(!/<link\b/i.test(html) && !/<script[^>]+src=/i.test(html) && !/<img[^>]*src="https?:/i.test(html),
     "无任何外部引用（单文件离线可玩的承诺）");
   const webpCount = (html.match(/data:image\/webp;base64,/g) || []).length;
-  const wantWebp = 12 + T.COUPONS.length + (T.POSTER && T.POSTER.img ? 1 : 0);
+  const prizeImgs = Object.keys(T.LOTTERY_IMGS || {}).length;
+  const wantWebp = 12 + T.COUPONS.length + (T.POSTER && T.POSTER.img ? 1 : 0) + prizeImgs;
   ok(webpCount === wantWebp, `内联 webp 数正确（立绘 12 + 券 ${T.COUPONS.length} + 海报 `
-    + `${T.POSTER && T.POSTER.img ? 1 : 0} = ${wantWebp}，实测 ${webpCount}）`);
-  ok(html.length < 350 * 1024, `产物体积在预算内（${(html.length / 1024).toFixed(0)}KB < 350KB —— 弱网也能几秒打开）`);
+    + `${T.POSTER && T.POSTER.img ? 1 : 0} + 奖池 ${prizeImgs} = ${wantWebp}，实测 ${webpCount}）`);
+  const bytes = Buffer.byteLength(html, "utf8");
+  ok(bytes < 420 * 1024, `产物体积在预算内（${(bytes / 1024).toFixed(0)}KB < 420KB —— 弱网也能几秒打开）`);
   ok(/id="bootTip"/.test(html) && /id="bootErr"/.test(html),
     "加载提示与错误可视元素都在产物里（结构级保障：弱网/异常不再是“只有背景”）");
 }
@@ -599,6 +609,47 @@ console.log("\n15) 传播出口：战报二维码 / 复制今日挑战 / Star �
     `复制成功有反馈：${bs.els.get("toast").textContent.slice(0, 20)}`);
   const u = bs.T.shareUrl();
   ok(/\?d=\d{8}$/.test(u) && u.startsWith("https://"), `分享链接带 8 位日期种子：${u.slice(-24)}`);
+}
+
+console.log("\n16) 真实奖池：麦麦积分抽奖的真实奖品墙（只读展示，不执行抽奖）");
+{
+  const lt = T.LOTTERY;
+  ok(!!lt && Array.isArray(lt.prizes) && lt.prizes.length >= 8,
+    `奖池已注入：${lt ? lt.prizes.length : 0} 项奖品（活动「${lt && lt.activityName}」）`);
+  ok(lt && /^\d+$/.test(String(lt.drawPoint)), `单次消耗是真实积分数：${lt && lt.drawPoint} 分`);
+  ok(lt && lt.statusText && /^\d{4}-\d{2}-\d{2}$/.test(lt.endTime || ""),
+    `活动状态与截止日真实：${lt && lt.statusText} · 至 ${lt && lt.endTime}`);
+  ok(lt.prizes.every((p) => p.n && p.f), "每项奖品都有名称与图片引用键");
+  ok(lt.prizes.every((p) => /^data:image\/webp;base64,/.test(T.LOTTERY_IMGS[p.f] || "")),
+    "每项奖品的图都命中图片池（引用完整、内联 webp ⇒ 离线可见、无 CORS）");
+  const nImg = Object.keys(T.LOTTERY_IMGS || {}).length;
+  ok(nImg <= lt.prizes.length && nImg >= 4,
+    `图片按 URL 去重：${lt.prizes.length} 项奖品共用 ${nImg} 张图（同图不重复内联）`);
+  ok(lt.prizes.some((p) => p.f !== lt.prizes[0].f) || nImg < lt.prizes.length,
+    "奖池里确实存在复用图（去重逻辑有真实素材可依）");
+
+  const bp = makeBootCtx();
+  ok(bp.els.get("prizeBox").classList.contains("off"), "没打完之前：奖池墙是收起的（与今日优惠同节奏）");
+  bp.T.reset(20261010, { autoStart: true });
+  bp.T.endGame("stuffed");
+  ok(!bp.els.get("prizeBox").classList.contains("off"), "打完一局 ⇒ 奖池墙出现");
+  const wall = bp.els.get("prizeWall").innerHTML || "";
+  const nWall = (wall.match(/class="pw"/g) || []).length;
+  ok(nWall === lt.prizes.length, `墙上画满 ${nWall} 项奖品（= 注入数 ${lt.prizes.length}）`);
+  ok(/data:image\/webp;base64,/.test(wall), "墙上挂的是真奖品图（内联 webp）");
+  ok((bp.els.get("prizeLab").textContent || "").includes("真实奖池"),
+    `区块标题写明白：${bp.els.get("prizeLab").textContent.slice(0, 24)}`);
+  const sub = bp.els.get("prizeSub").innerHTML || "";
+  ok(sub.includes("积分") && sub.includes("张券"),
+    "副文案把本局虚拟券与真实奖池接上（本局抢到 N 张券 · 真实世界 24 积分抽一次）");
+  ok(sub.includes("MCP"), "标注数据来源（官方 MCP）与入口提示（抽奖在麦当劳 App）");
+
+  // 负向控制：没有奖池数据时，区块收起而不是渲染空墙
+  const bq = makeBootCtx(undefined, { noLottery: true });
+  bq.T.reset(20261010, { autoStart: true });
+  bq.T.endGame("stuffed");
+  ok(bq.els.get("prizeBox").classList.contains("off"),
+    "奖池数据缺失时：区块保持收起（负向控制，不是渲染空壳）");
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);

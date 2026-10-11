@@ -33,11 +33,13 @@ SPRITES_DIR = os.path.join(ROOT, "assets", "sprites")
 REALTIME = os.path.join(ROOT, "data", "realtime.json")
 COUPON_DIR = os.path.join(ROOT, "assets", "coupons")
 POSTER_DIR = os.path.join(ROOT, "assets", "poster")
+PRIZE_DIR = os.path.join(ROOT, "assets", "prizes")   # 真实奖池奖品图（query-lottery-info 快照）
 QR_REPO = os.path.join(ROOT, "assets", "qr", "repo.png")   # 仓库二维码（战报/结算页的传播出口）
 REPO_URL = "https://github.com/langlangagowith/mcd-rogue"
 SHARE_BASE = "https://langlangagowith.github.io/mcd-rogue/arcade.html"
 OUT = os.path.join(ROOT, "docs", "arcade.html")
-SIZE_BUDGET_KB = 350    # 弱网口径 60KB/s ⇒ 350KB ≈ 6s；超了打印警告
+SIZE_BUDGET_KB = 420    # 弱网口径 60KB/s ⇒ 420KB ≈ 7s；超了打印警告
+                        # （2026-10-11 从 350 上调：接入真实奖池墙 +8 图 ≈ +42KB）
 
 SLUGS = [
     "burger-double", "burger-chicken", "burger-angus", "fries",
@@ -227,10 +229,57 @@ def realtime_payload() -> tuple[list[dict], dict | None]:
     return coupons, poster
 
 
+def lottery_payload() -> tuple[dict | None, dict[str, str]]:
+    """真实奖池（query-lottery-info 快照）：结算页「真实奖池」墙的数据。
+
+    构造注意：
+    - 奖品与券图共享 URL 去重池 ⇒ 部分奖品的图复用 coupon-N（从 COUPON_DIR 取）；
+    - 图片以「引用键 → dataURL」字典返回，奖品项只存键（多个奖品可能引用同一张图，
+      直接内联到数组里会让同一段 base64 重复膨胀）；
+    - 奖池可缺：拉不到就退化为不显示奖池墙，不阻塞构建。
+    """
+    lottery: dict | None = None
+    imgs: dict[str, str] = {}
+    if not os.path.isfile(REALTIME):
+        return lottery, imgs
+    rt = json.load(open(REALTIME, encoding="utf-8"))
+    lt = rt.get("lottery")
+    if not lt or not lt.get("prizes"):
+        print("⚠ realtime.json 里没有奖池 ⇒ 结算页不显示奖池墙（跑新版 fetch_realtime.py 生成）")
+        return lottery, imgs
+    prizes: list[dict] = []
+    for p in lt["prizes"]:
+        f = (p.get("f") or "").strip()
+        if not f:
+            continue
+        if f not in imgs:
+            pdir = COUPON_DIR if f.startswith("coupon-") else PRIZE_DIR
+            path = os.path.join(pdir, f + ".webp")
+            if not os.path.isfile(path):
+                print(f"⚠ 缺奖池图 {path}，跳过「{p.get('n')}」")
+                continue
+            b64 = base64.b64encode(open(path, "rb").read()).decode("ascii")
+            imgs[f] = "data:image/webp;base64," + b64
+        prizes.append({"n": p.get("n", ""), "t": p.get("t", ""), "f": f})
+    if len(prizes) >= 4:
+        lottery = {
+            "activityName": lt.get("activityName", ""),
+            "statusText": lt.get("statusText", ""),
+            "drawPoint": lt.get("drawPoint", ""),
+            "drawTypeText": lt.get("drawTypeText", ""),
+            "endTime": lt.get("endTime", ""),
+            "prizes": prizes,
+        }
+    else:
+        print(f"⚠ 可用奖池项过少（{len(prizes)}）⇒ 结算页不显示奖池墙")
+    return lottery, imgs
+
+
 def main() -> int:
     tpl = open(TPL, encoding="utf-8").read()
     for ph in ("/*__FOODS__*/", "/*__SPRITES__*/", "/*__COUPONS__*/", "/*__POSTER__*/",
-               "/*__COMBOS__*/", "/*__DEALS__*/", "/*__REPOQR__*/", "/*__REPOURL__*/", "/*__SHAREBASE__*/"):
+               "/*__COMBOS__*/", "/*__DEALS__*/", "/*__REPOQR__*/", "/*__REPOURL__*/", "/*__SHAREBASE__*/",
+               "/*__LOTTERY__*/", "/*__LOTTERYIMGS__*/"):
         if ph not in tpl:
             print(f"❌ 模板里找不到占位符 {ph}")
             return 1
@@ -262,6 +311,7 @@ def main() -> int:
         sprites[slug] = "data:image/webp;base64," + b64
 
     coupons, poster = realtime_payload()
+    lottery, lottery_imgs = lottery_payload()
 
     combos: list[dict] = []
     if os.path.isfile(SNAP):
@@ -281,6 +331,8 @@ def main() -> int:
     poster_json = json.dumps(poster, ensure_ascii=False, separators=(",", ":"))
     combos_json = json.dumps(combos, ensure_ascii=False, separators=(",", ":"))
     deals_json = json.dumps(deals, ensure_ascii=False, separators=(",", ":"))
+    lottery_json = json.dumps(lottery, ensure_ascii=False, separators=(",", ":"))
+    lottery_imgs_json = json.dumps(lottery_imgs, separators=(",", ":"))
     # 仓库二维码：战报/结算页的传播出口（玩家晒战报 = 替我们带流量）
     repo_qr = ""
     if os.path.isfile(QR_REPO):
@@ -294,6 +346,7 @@ def main() -> int:
     poster_json = poster_json.replace("<", "\\u003c")
     combos_json = combos_json.replace("<", "\\u003c")
     deals_json = deals_json.replace("<", "\\u003c")
+    lottery_json = lottery_json.replace("<", "\\u003c")
 
     html = (tpl
             .replace("/*__FOODS__*/", foods_json)
@@ -302,6 +355,8 @@ def main() -> int:
             .replace("/*__POSTER__*/", poster_json)
             .replace("/*__COMBOS__*/", combos_json)
             .replace("/*__DEALS__*/", deals_json)
+            .replace("/*__LOTTERY__*/", lottery_json)
+            .replace("/*__LOTTERYIMGS__*/", lottery_imgs_json)
             .replace("/*__REPOQR__*/", json.dumps(repo_qr))
             .replace("/*__REPOURL__*/", json.dumps(REPO_URL))
             .replace("/*__SHAREBASE__*/", json.dumps(SHARE_BASE)))
@@ -316,7 +371,8 @@ def main() -> int:
     kb = os.path.getsize(OUT) / 1024
     print(f"✅ 已写出 {OUT}  ({kb:.1f} KB)")
     print(f"   注入餐品 {len(foods)} 种 · 立绘 {len(SLUGS)} 张 · 真实券 {len(coupons)} 张"
-          f" · 活动海报 {'有' if poster else '无'}")
+          f" · 活动海报 {'有' if poster else '无'}"
+          f" · 真实奖池 {len(lottery['prizes']) if lottery else 0} 项/{len(lottery_imgs)} 图")
     print(f"   真实套餐 {len(combos)} 份（一份分 {len(combos[0]['items'])} 件间隔掉落）"
           f" · 热量 {min(c['k'] for c in combos)}~{max(c['k'] for c in combos)} kcal"
           f" · 单份最省 ¥{max(c['save'] for c in combos)} · 今日优惠 {len(deals)} 条")

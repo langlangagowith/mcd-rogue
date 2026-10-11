@@ -3,14 +3,15 @@
 """「真实感层」素材压缩：券图 / 活动海报 → 小体积 webp（一次性加工，依赖 Pillow）。
 
 券图在游戏里当掉落道具（画 ~48px）与战报缩略（画 ~110px），256px 源足够；
-海报只在开始页弹窗里显示（~360px 宽），480px 源足够。
+海报只在开始页弹窗里显示（~360px 宽），480px 源足够；
+奖池图在结算页「真实奖池」墙里画 ~56px，160px 源足够。
 
-体积预算（弱网口径 60KB/s，arcade 产物目标 <350KB）：
-  券 ≤14 KB/张 · 海报 ≤60 KB    —— 超了会打印 ⚠ 提示调质量。
+体积预算（弱网口径 60KB/s，arcade 产物目标 <420KB）：
+  券 ≤14 KB/张 · 海报 ≤60 KB · 奖池图 ≤10 KB/张    —— 超了会打印 ⚠ 提示调质量。
 
 用法（Pillow 在 default venv 里，系统 python 没有）：
     C:/Users/Administrator/.workbuddy/binaries/python/envs/default/Scripts/python.exe scripts/prepare_realtime.py
-    ... --coupon-size 256 --coupon-q 82 --poster-w 480 --poster-q 68
+    ... --coupon-size 256 --coupon-q 82 --poster-w 480 --poster-q 68 --prize-size 160 --prize-q 80
 """
 
 from __future__ import annotations
@@ -25,11 +26,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REALTIME = os.path.join(ROOT, "data", "realtime.json")
 RAW_C = os.path.join(ROOT, "assets", "coupons", "raw")
 RAW_P = os.path.join(ROOT, "assets", "poster", "raw")
+RAW_PRIZES = os.path.join(ROOT, "assets", "prizes", "raw")
 OUT_C = os.path.join(ROOT, "assets", "coupons")
 OUT_P = os.path.join(ROOT, "assets", "poster")
+OUT_PRIZES = os.path.join(ROOT, "assets", "prizes")
 
 COUPON_BUDGET = 14 * 1024
 POSTER_BUDGET = 60 * 1024
+PRIZE_BUDGET = 10 * 1024
 
 
 def conv(src: str, dst: str, size: int | None, width: int | None, q: int) -> int:
@@ -51,6 +55,8 @@ def main() -> int:
     ap.add_argument("--coupon-q", type=int, default=82)
     ap.add_argument("--poster-w", type=int, default=480)
     ap.add_argument("--poster-q", type=int, default=68)
+    ap.add_argument("--prize-size", type=int, default=160)
+    ap.add_argument("--prize-q", type=int, default=80)
     args = ap.parse_args()
 
     rt = json.load(open(REALTIME, encoding="utf-8"))
@@ -76,6 +82,28 @@ def main() -> int:
         flag = "⚠超预算" if n > POSTER_BUDGET else "ok"
         print(f"海报：{p['title'][:24]}  {n/1024:.1f} KB  {flag}"
               f"（内联后 ≈ {n*1.37/1024:.1f} KB）")
+
+    lt = rt.get("lottery")
+    if lt and lt.get("prizes"):
+        os.makedirs(OUT_PRIZES, exist_ok=True)
+        seen: set[str] = set()
+        print("奖池图：")
+        pt = 0
+        for prize in lt["prizes"]:
+            f = prize["f"]
+            if f in seen:
+                continue
+            seen.add(f)
+            if f.startswith("coupon-"):
+                print(f"  {f:<10} {prize['n'][:18]:<20} 复用券图（已压缩过，不重复计入）")
+                continue
+            src = os.path.join(RAW_PRIZES, f + ".png")
+            dst = os.path.join(OUT_PRIZES, f + ".webp")
+            n = conv(src, dst, args.prize_size, None, args.prize_q)
+            pt += n
+            flag = "⚠超预算" if n > PRIZE_BUDGET else "ok"
+            print(f"  {f:<10} {prize['n'][:18]:<20} {n/1024:6.1f} KB  {flag}")
+        print(f"  小计 {pt/1024:.1f} KB（内联后 ×1.37 ≈ {pt*1.37/1024:.1f} KB）")
     return 0
 
 
