@@ -621,5 +621,109 @@ console.log("\n18) 麦门爆发（血量首次跌破 20% 自动清场，每局�
   ok(!boom, "爆发后渲染（白闪/震屏/冲击波）无异常");
 }
 
+console.log("\n19) BOSS 爆发「超大份」（蓄力 1s 预警 → 劈半血）");
+{
+  const b = makeBootCtx();
+  const find = (n) => T.ARCH.find((a) => a.name.includes(n));
+  const plain = find("巨无霸");
+  const mkOn = (st, x, y, extra) => {
+    const e = { x, y, r: plain.r * 2, arch: plain, hp: 3000, maxHp: 3000, speed: 0,
+      dmg: plain.dmg, xp: 40, boss: true, elite: false, mini: false, trait: plain.trait,
+      dashCd: 9, dashT: 0, spitCd: 9, burstCd: 0.05, chargeT: 0,
+      hitCd: 0, flash: 0, wob: 0, dead: false };
+    Object.assign(e, extra || {});
+    st.enemies.push(e);
+    return e;
+  };
+
+  // ① 冷却到期 + 玩家在 420px 内 ⇒ 蓄力；蓄力中站定
+  b.T.reset(20261009, { autoStart: true });
+  const S = b.T.state();
+  S.weapons = [];                              // 清掉武器：本组只测 BOSS 行为，避免输出干扰精确值
+  S.enemies.length = 0;
+  S.player.x = 0; S.player.y = 0; S.player.hp = 60; S.player.invuln = 0;
+  const boss = mkOn(S, 300, 0);
+  b.T.update(DT);
+  ok(boss.chargeT === 0 && boss.burstCd > 0, "冷却未到：不蓄力");
+  for (let i = 0; i < 6; i++) b.T.update(DT);
+  ok(boss.chargeT > 0, `冷却到期 + 玩家在 420px 内 ⇒ 进入蓄力（chargeT=${boss.chargeT.toFixed(2)}s）`);
+  const bx0 = boss.x, by0 = boss.y;
+  for (let i = 0; i < 10; i++) b.T.update(DT);
+  ok(boss.x === bx0 && boss.y === by0, "蓄力中 BOSS 站定（这就是能躲的全部原因）");
+
+  // ② 释放：340px 内 → 血量精确减半（60 → 30）；红闪 + 红冲击波
+  let sawFlash = false, sawRing = false;
+  for (let i = 0; i < 70; i++) {
+    b.T.update(DT);
+    if (S.fx.some((f) => f.kind === "flash" && f.color === "#ff3b30")) sawFlash = true;
+    if (S.fx.some((f) => f.kind === "ring" && f.color === "#ff5b4d")) sawRing = true;
+  }
+  ok(boss.chargeT === 0, "蓄力结束即释放");
+  ok(boss.burstCd > 5, `释放后进入冷却（burstCd=${boss.burstCd.toFixed(1)}s）`);
+  ok(S.player.hp === 30, `300px 内被劈半：60 → ${S.player.hp}`);
+  ok(sawFlash && sawRing, "释放伴随红闪 + 红色冲击波");
+
+  // ③ 躲开：蓄力后跑出 340px ⇒ 不中
+  b.T.reset(20261010, { autoStart: true });
+  const S2 = b.T.state();
+  S2.weapons = [];
+  S2.enemies.length = 0;
+  S2.player.x = 0; S2.player.y = 0; S2.player.hp = 80; S2.player.invuln = 0;
+  const boss2 = mkOn(S2, 300, 0);
+  for (let i = 0; i < 8; i++) b.T.update(DT);
+  ok(boss2.chargeT > 0, "第二局：再次进入蓄力");
+  S2.player.x = 900;                           // 模拟玩家跑出预警圈（boss 在 x=300，距离拉到 600px）
+  for (let i = 0; i < 70; i++) b.T.update(DT);
+  ok(S2.player.hp === 80, `跑出 340px 预警圈 ⇒ 不挨劈（hp=${S2.player.hp}）`);
+
+  // ④ 保底：1 血被劈不会死
+  b.T.reset(20261011, { autoStart: true });
+  const S3 = b.T.state();
+  S3.weapons = [];
+  S3.enemies.length = 0;
+  S3.player.x = 0; S3.player.y = 0; S3.player.hp = 1; S3.player.invuln = 0;
+  mkOn(S3, 300, 0);
+  for (let i = 0; i < 80; i++) b.T.update(DT);
+  ok(S3.player.hp === 1 && !S3.over, `1 血被劈：劈半保底，不死（hp=${S3.player.hp}）`);
+
+  // ⑤ 联动：40 血被劈成 20（=20%）⇒ 触发「麦门爆发」清场
+  b.T.reset(20261012, { autoStart: true });
+  const S4 = b.T.state();
+  S4.weapons = [];
+  S4.enemies.length = 0;
+  S4.player.x = 0; S4.player.y = 0; S4.player.hp = 40; S4.player.invuln = 0;
+  const boss3 = mkOn(S4, 300, 0);
+  const minion = mkOn(S4, 200, 150, { boss: false, hp: 60, maxHp: 60, xp: 4 });
+  for (let i = 0; i < 80; i++) b.T.update(DT);
+  ok(S4.player.hp === 20 && S4.burstUsed === true,
+    `40 血被劈成 20（恰好 20%）⇒ 自动触发麦门爆发（hp=${S4.player.hp}）`);
+  ok(minion.dead, "爆发顺手清掉了场上小怪（联动成立）");
+  ok(boss3.hp === 2680, `BOSS 也吃了爆发重伤：3000 → ${boss3.hp}`);
+
+  // ⑥ 玩家在 420px 外：冷却到期也不蓄力（不空放）
+  b.T.reset(20261013, { autoStart: true });
+  const S5 = b.T.state();
+  S5.weapons = [];
+  S5.enemies.length = 0;
+  S5.player.x = 0; S5.player.y = 0; S5.player.hp = 60;
+  const boss5 = mkOn(S5, 500, 0);
+  for (let i = 0; i < 30; i++) b.T.update(DT);
+  ok(boss5.chargeT === 0 && boss5.burstCd <= 0, "玩家在 420px 外：冷却到期也不蓄力（不空放）");
+
+  // ⑦ 渲染路径：蓄力预警圈 + 红闪 不崩
+  let boomB = null;
+  try {
+    b.T.reset(20261014, { autoStart: true });
+    const S6 = b.T.state();
+    S6.enemies.length = 0; S6.player.hp = 60;
+    mkOn(S6, 300, 0);
+    for (let i = 0; i < 20; i++) b.T.update(DT);   // 蓄力中
+    b.T.render();                                   // 画预警圈（收缩环 + 范围）
+    for (let i = 0; i < 70; i++) b.T.update(DT);
+    b.T.render();                                   // 释放后
+  } catch (e) { boomB = e; }
+  ok(!boomB, "蓄力预警圈与红闪的渲染无异常");
+}
+
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 process.exit(fail ? 1 : 0);
