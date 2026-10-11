@@ -72,17 +72,72 @@ button.ghost{padding:10px 18px;border-radius:10px;border:1px solid var(--line);b
 canvas{width:100%;border-radius:10px;margin-top:10px}
 .quote{background:var(--panel2);border-radius:10px;padding:10px;font-size:13px;color:var(--dim);margin-top:10px}
 .legend{font-size:11px;color:var(--dim2);margin-top:6px;line-height:1.6}
+/* ================= 炫彩摇餐机（首屏轻玩法） ================= */
+.hero{text-align:center;padding:16px 0 4px}
+.hero .neon{font-size:34px;font-weight:800;letter-spacing:3px;margin:0;line-height:1.15;
+  background:linear-gradient(100deg,#ffc72c 0%,#ffe9a3 26%,#ff8a3d 50%,#ffb020 74%,#ffc72c 100%);
+  background-size:230% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:neonflow 4.2s linear infinite;filter:drop-shadow(0 0 16px rgba(255,140,40,.38))}
+@keyframes neonflow{to{background-position:230% 0}}
+.hero .sub2{color:#cdbfa4;font-size:12.5px;margin:8px 0 0}
+.stagewrap{position:relative;border-radius:18px;overflow:hidden;margin:10px 0 4px;
+  border:1px solid #3a2f1f;
+  background:radial-gradient(120% 90% at 50% -12%,rgba(255,199,44,.16),rgba(218,41,28,.09) 44%,rgba(18,16,14,0) 72%),#151210}
+#stage{display:block;width:100%;height:340px}
+.shakebtn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  padding:18px 44px;border-radius:60px;border:0;cursor:pointer;font-family:inherit;
+  font-size:20px;font-weight:800;letter-spacing:5px;color:#241000;text-indent:5px;white-space:nowrap;
+  background:linear-gradient(120deg,#ffc72c,#ffde7a 45%,#ffb020);
+  box-shadow:0 10px 30px rgba(255,140,30,.32);animation:pulse 2s ease-out infinite;
+  transition:transform .12s}
+.shakebtn:active{transform:translate(-50%,-50%) scale(.94)}
+.shakebtn.off{display:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,199,44,.55),0 10px 30px rgba(255,140,30,.3)}
+  70%{box-shadow:0 0 0 26px rgba(255,199,44,0),0 10px 30px rgba(255,140,30,.3)}
+  100%{box-shadow:0 0 0 0 rgba(255,199,44,0),0 10px 30px rgba(255,140,30,.3)}}
+.shakecard{margin-top:10px;border-radius:16px;padding:14px;position:relative;
+  background:linear-gradient(160deg,#221a10,#1a1410 55%,#241812);
+  border:1px solid rgba(255,199,44,.6);
+  box-shadow:0 0 28px rgba(255,170,40,.15),inset 0 0 34px rgba(255,190,60,.05);
+  animation:cardin .45s cubic-bezier(.2,.9,.3,1.35)}
+@keyframes cardin{from{transform:scale(.92) translateY(14px);opacity:0}}
+.shakecard.off{display:none}
+.classic-sum{cursor:pointer;font-size:13.5px;color:var(--gold);padding:12px;border-radius:12px;
+  border:1px dashed rgba(255,199,44,.4);background:rgba(255,199,44,.05);list-style:none;text-align:center}
+.classic-sum::-webkit-details-marker{display:none}
+details#classicArea[open] .classic-sum{margin-bottom:10px}
 </style>
 </head>
 <body>
 
-<div class="between" style="margin-bottom:10px">
-  <div>
-    <h1>麦门开饭 · McRogue</h1>
-    <p class="sub">用真实菜单与真实营养数据，打完一日三餐</p>
-  </div>
-  <button class="ghost" id="btnRestart">重开</button>
+<div class="hero">
+  <h1 class="neon">麦门开饭</h1>
+  <p class="sub2">麦当劳官方数据 · 摇一份真实套餐</p>
 </div>
+
+<div class="stagewrap">
+  <canvas id="stage"></canvas>
+  <button class="shakebtn" id="btnShake">摇 一 份</button>
+</div>
+
+<div class="shakecard off" id="shakeCard">
+  <div class="between"><b id="scName" style="font-size:16px"></b><span class="tag hot" id="scPart"></span></div>
+  <div class="mini" id="scItems" style="margin:6px 0 2px;line-height:1.7"></div>
+  <div class="row" style="gap:14px;margin:8px 0 2px;flex-wrap:wrap;font-size:13px">
+    <span>真实价 <b style="color:var(--gold);font-size:16px" id="scPrice">0</b> 元</span>
+    <span><b style="color:var(--gold);font-size:16px" id="scKcal">0</b> kcal</span>
+    <span id="scSave" style="color:var(--ok)"></span>
+  </div>
+  <div class="mini" style="margin:9px 0 5px">今天麦当劳真在发的券 —— 摇到的这顿能省下的真券：</div>
+  <div class="row" id="scCoupons" style="gap:8px;flex-wrap:wrap"></div>
+  <div class="row" style="gap:10px;margin-top:12px">
+    <button class="primary" style="flex:1" id="btnShakeAgain">再摇一份</button>
+    <button class="ghost" style="flex:1" id="btnShakeShare">分享这份</button>
+  </div>
+</div>
+
+<p class="center mini" style="margin:12px 0 4px">摇得开心？想认真算一局 ——
+  <a href="#" id="lnkClassic" style="color:var(--gold);font-weight:700">展开经典模式（三回合点餐）↓</a></p>
 
 <!-- 传播出口：短视频/图文进来的玩家大多不看 README ⇒ 主页直说一次（不刷、不诱导互刷） -->
 <div style="background:rgba(255,199,44,.08);border:1px dashed #ffc72c;border-radius:12px;
@@ -92,8 +147,6 @@ canvas{width:100%;border-radius:10px;margin-top:10px}
      style="color:#ffc72c;font-weight:800">GitHub 给个 ⭐</a>
   （排名只看 Star · 10/26 定榜）
 </div>
-
-<div class="card" id="head"></div>
 
 <div class="card" style="border-color:#ffc72c">
   <h2 style="color:#ffc72c">🎮 另一个玩法：麦门幸存者</h2>
@@ -110,6 +163,15 @@ canvas{width:100%;border-radius:10px;margin-top:10px}
     12 张手绘风餐品立绘，热量越高体型越大、越顶饱。</p>
   <button class="primary" onclick="location.href='./arcade.html'">进入出餐口大作战 →</button>
 </div>
+
+<details id="classicArea">
+  <summary class="classic-sum">认真算一局？展开「经典模式 · 三回合点餐」</summary>
+  <div class="between" style="margin:2px 0 10px">
+    <span class="mini">用券算价 · 一日三餐 · 打完出段位与战报图</span>
+    <button class="ghost" id="btnRestart">重开</button>
+  </div>
+
+<div class="card" id="head"></div>
 
 <div class="card">
   <h2>今日</h2>
@@ -142,8 +204,10 @@ canvas{width:100%;border-radius:10px;margin-top:10px}
     <button class="primary" id="btnServe" disabled>选一件再说</button>
   </div>
 </div>
+</details>
 
 <div class="mask" id="maskRound"><div class="sheet" id="sheetRound"></div></div>
+<div class="mask" id="maskShake"><div class="sheet" id="sheetShake"></div></div>
 <div class="mask" id="maskReport"><div class="sheet" id="sheetReport"></div></div>
 
 <script id="payload" type="application/json">/*__DATA__*/</script>
@@ -429,6 +493,250 @@ function saveCard(cv){
 }
 
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+
+/* ================= 摇餐机（首屏轻玩法） =================
+   一屏内完成「摇一份 → 食材掉落 → 真实套餐结果 → 真券 + 分享」的短动线。
+   套餐、价格、热量、券都来自麦当劳官方 MCP 快照（构建期注入，运行时零网络）。 */
+const SHAKE_COMBOS = DATA.combos || [];
+const SHAKE_SPRITES = DATA.sprites || {};
+const SHAKE_COUPONS = DATA.coupons || [];
+const SHAKE_QR = DATA.qr || "";
+const SHAKE_BASE = DATA.shareBase || "";
+
+const spriteCache = {};
+function spriteOf(slug){
+  if (!spriteCache[slug]){
+    const im = new Image();
+    im.src = SHAKE_SPRITES[slug] || "";
+    spriteCache[slug] = im;
+  }
+  return spriteCache[slug];
+}
+const qrImg = SHAKE_QR ? new Image() : null;
+if (qrImg) qrImg.src = SHAKE_QR;
+
+const stage = document.getElementById("stage");
+const sctx = stage.getContext("2d");
+let stageW = 680, stageH = 340;
+
+function stageFit(){
+  stageW = stage.clientWidth || 680;
+  stageH = stage.clientHeight || 340;
+  const dpr = Math.min(2, (typeof window !== "undefined" && window.devicePixelRatio) || 1);
+  stage.width = Math.round(stageW * dpr);
+  stage.height = Math.round(stageH * dpr);
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+let shake = null, shakeRAF = 0;
+
+function startShake(){
+  if (!SHAKE_COMBOS.length) return;
+  stageFit();
+  cancelAnimationFrame(shakeRAF);
+  const combo = SHAKE_COMBOS[Math.floor(Math.random() * SHAKE_COMBOS.length)];
+  const n = combo.items.length;
+  const items = combo.items.map((it, i) => ({
+    it, img: spriteOf(it.s),
+    x: (stageW * (i + 1)) / (n + 1),
+    y: -70, vy: 0,
+    rot: Math.random() * 0.8 - 0.4, vr: (Math.random() * 2 - 1) * 2.6,
+    delay: 0.3 + i * 0.34, t: 0, landed: false, landT: 0,
+    sx: 52 + Math.min(18, (it.k || 0) / 40),   // 热量越高体型越大（与出餐口同一套视觉语言）
+  }));
+  shake = { combo, items, sparks: [], t: 0, over: false, celebrated: false, overAt: 0 };
+  document.getElementById("btnShake").classList.add("off");
+  document.getElementById("shakeCard").classList.add("off");
+  let last = performance.now();
+  const step = (now) => {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    updateShake(dt);
+    drawStage();
+    if (!shake.over) shakeRAF = requestAnimationFrame(step);
+    else showShakeCard();
+  };
+  shakeRAF = requestAnimationFrame(step);
+}
+
+function burst(x, y, n){
+  for (let i = 0; i < n; i++){
+    const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 240;
+    shake.sparks.push({
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 130,
+      life: 0.5 + Math.random() * 0.55, max: 1.05,
+      c: Math.random() < 0.55 ? "#ffc72c" : "#ff8a3d",
+      r: 1.4 + Math.random() * 2.6,
+    });
+  }
+}
+
+function updateShake(dt){
+  shake.t += dt;
+  const floorY = stageH - 70;
+  let allLanded = true;
+  for (const o of shake.items){
+    if (!o.landed){
+      if (o.t < o.delay){ o.t += dt; allLanded = false; continue; }
+      o.t += dt;
+      o.vy += 1600 * dt;
+      o.y += o.vy * dt;
+      o.rot += o.vr * dt;
+      if (o.y >= floorY && o.vy > 0){
+        o.y = floorY; o.landed = true; o.landT = shake.t; o.rot = 0;
+        burst(o.x, floorY + 18, 24);
+      } else allLanded = false;
+    } else {
+      const age = shake.t - o.landT;
+      o.y = age < 0.32 ? floorY - Math.sin((age / 0.32) * Math.PI) * 12 : floorY;
+    }
+  }
+  if (allLanded && !shake.celebrated){
+    shake.celebrated = true;
+    shake.overAt = shake.t + 0.9;
+    for (let k = 0; k < 3; k++) burst(stageW * (0.28 + 0.22 * k), stageH * 0.34, 36);
+  }
+  for (const p of shake.sparks){
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 920 * dt;
+    if (p.y > stageH - 8 && p.vy > 0){ p.y = stageH - 8; p.vy *= -0.35; }
+    p.life -= dt;
+  }
+  shake.sparks = shake.sparks.filter((p) => p.life > 0);
+  if (shake.celebrated && shake.t >= shake.overAt) shake.over = true;
+}
+
+function drawStage(){
+  const g = sctx;
+  g.clearRect(0, 0, stageW, stageH);
+  if (!shake) return;
+  const floorY = stageH - 70;
+  for (const o of shake.items){
+    if (o.t < o.delay * 0.5 && !o.landed) continue;
+    const rad = g.createRadialGradient(o.x, floorY + 40, 4, o.x, floorY + 40, 46);
+    rad.addColorStop(0, "rgba(255,199,44,.20)");
+    rad.addColorStop(1, "rgba(255,199,44,0)");
+    g.fillStyle = rad;
+    g.fillRect(o.x - 46, floorY + 8, 92, 46);
+  }
+  g.fillStyle = "rgba(255,199,44,.14)";
+  g.fillRect(stageW * 0.06, floorY + 44, stageW * 0.88, 2);
+  for (const o of shake.items){
+    if (o.t < o.delay && !o.landed) continue;
+    const s = o.sx;
+    g.save();
+    g.translate(o.x, o.y + s / 2);
+    g.rotate(o.rot);
+    if (o.img && o.img.complete && o.img.naturalWidth) g.drawImage(o.img, -s / 2, -s / 2, s, s);
+    else { g.fillStyle = "#ffc72c"; g.fillRect(-s / 2, -s / 2, s, s); }
+    g.restore();
+  }
+  for (const p of shake.sparks){
+    g.globalAlpha = Math.max(0, p.life / p.max);
+    g.fillStyle = p.c;
+    g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+
+function countUp(id, target, money){
+  const el = document.getElementById(id);
+  const fmt = (v) => money ? String(Math.round(v * 10) / 10) : String(Math.round(v));
+  el.dataset.target = String(target);
+  let t0 = null; const dur = 520;
+  const step = (now) => {
+    if (t0 === null) t0 = now;
+    const k = Math.min(1, (now - t0) / dur);
+    el.textContent = fmt(target * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  el.textContent = "0";
+  requestAnimationFrame(step);
+}
+
+function showShakeCard(){
+  const c = shake.combo;
+  const partMap = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐" };
+  document.getElementById("scName").textContent = c.n;
+  document.getElementById("scPart").textContent = partMap[c.part] || "套餐";
+  document.getElementById("scItems").innerHTML = c.items.map((i) =>
+    esc(i.n) + ' <span style="color:var(--dim2)">¥' + i.p + "</span>").join("  ·  ");
+  countUp("scPrice", c.p, true);
+  countUp("scKcal", c.k, false);
+  document.getElementById("scSave").textContent = c.save > 0 ? "比单点省 ¥" + c.save : "单点原价组合";
+  document.getElementById("scCoupons").innerHTML = SHAKE_COUPONS.slice(0, 4).map((cp) =>
+    '<img src="' + cp.img + '" alt="' + esc(cp.n) + '" title="' + esc(cp.n) +
+    '" style="width:62px;height:62px;border-radius:9px;object-fit:cover;border:1px solid rgba(255,199,44,.45)">').join("");
+  document.getElementById("shakeCard").classList.remove("off");
+}
+
+function drawShakeCard(c, cv){
+  const g = cv.getContext("2d"), W = cv.width, H = cv.height;
+  const bg = g.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "#1d1509"); bg.addColorStop(0.5, "#12100e"); bg.addColorStop(1, "#0c0a08");
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.fillStyle = "#ffc72c"; g.fillRect(0, 0, W, 10); g.fillRect(0, H - 10, W, 10);
+  g.fillStyle = "#ffc72c"; g.font = "800 54px system-ui,sans-serif";
+  g.fillText("麦门开饭 · 摇餐", 56, 112);
+  g.fillStyle = "#a99e8d"; g.font = "26px system-ui,sans-serif";
+  g.fillText("麦当劳官方数据 · 一支真实的套餐", 56, 158);
+  g.fillStyle = "#f5efe6"; g.font = "800 42px system-ui,sans-serif";
+  g.fillText(c.n.slice(0, 15), 56, 258);
+  const n = c.items.length, cell = Math.min(190, (W - 120) / n);
+  c.items.forEach((it, i) => {
+    const cx = 60 + cell * i + cell / 2, cy = 470;
+    const img = spriteOf(it.s);
+    if (img && img.complete && img.naturalWidth) g.drawImage(img, cx - cell / 2 + 8, cy - cell / 2 + 8, cell - 16, cell - 16);
+    else { g.fillStyle = "#332c22"; g.fillRect(cx - cell / 2 + 8, cy - cell / 2 + 8, cell - 16, cell - 16); }
+    g.fillStyle = "#a99e8d"; g.font = "20px system-ui,sans-serif";
+    g.fillText(it.n.slice(0, 9), cx - Math.min(88, it.n.length * 10), cy + cell / 2 + 18);
+  });
+  let y = 640;
+  g.fillStyle = "#f5efe6"; g.font = "700 42px system-ui,sans-serif";
+  g.fillText("真实价 ¥" + c.p + "  ·  " + c.k + " kcal", 56, y); y += 62;
+  g.fillStyle = c.save > 0 ? "#4cc38a" : "#a99e8d";
+  g.fillText(c.save > 0 ? "比单点省 ¥" + c.save : "按单点原价组合", 56, y); y += 66;
+  g.fillStyle = "#cdbfa4"; g.font = "24px system-ui,sans-serif";
+  g.fillText("食材与价格来自麦当劳中国官方 MCP（实时快照）", 56, y);
+  g.fillStyle = "#a99e8d"; g.font = "26px system-ui,sans-serif";
+  g.fillText("扫码摇一份你的套餐", 56, H - 168);
+  if (qrImg && qrImg.complete && qrImg.naturalWidth) g.drawImage(qrImg, W - 226, H - 246, 160, 160);
+  g.fillStyle = "#6f6659"; g.font = "20px system-ui,sans-serif";
+  g.fillText("langlangagowith.github.io/mcd-rogue", 56, H - 74);
+}
+
+function shareShake(){
+  if (!shake) return;
+  const c = shake.combo;
+  document.getElementById("sheetShake").innerHTML =
+    '<div class="center"><span class="tag hot">摇到这份 · 真实套餐</span></div>' +
+    '<canvas id="cvShake" width="760" height="1000"></canvas>' +
+    '<div class="row" style="gap:10px;margin-top:12px">' +
+    '<button class="ghost" id="btnSaveShake" style="flex:1">保存图片</button>' +
+    '<button class="ghost" id="btnCloseShake" style="flex:1">关掉</button></div>';
+  document.getElementById("maskShake").classList.add("on");
+  const cv = document.getElementById("cvShake");
+  drawShakeCard(c, cv);
+  document.getElementById("btnSaveShake").onclick = () => {
+    const a = document.createElement("a");
+    a.download = "mcshake.png";
+    a.href = cv.toDataURL("image/png");
+    a.click();
+  };
+  document.getElementById("btnCloseShake").onclick = () =>
+    document.getElementById("maskShake").classList.remove("on");
+}
+
+document.getElementById("btnShake").onclick = startShake;
+document.getElementById("btnShakeAgain").onclick = startShake;
+document.getElementById("btnShakeShare").onclick = shareShake;
+document.getElementById("maskShake").onclick = (e) => {
+  if (e.target && e.target.id === "maskShake") e.target.classList.remove("on");
+};
+document.getElementById("lnkClassic").onclick = (e) => {
+  e.preventDefault();
+  const d = document.getElementById("classicArea");
+  if (d) { d.open = true; if (d.scrollIntoView) d.scrollIntoView({ behavior: "smooth", block: "start" }); }
+};
+window.addEventListener("resize", () => { if (shake && !shake.over) stageFit(); });
 
 document.getElementById("btnRestart").onclick = newGame;
 document.getElementById("maskRound").onclick = e=>{ if(e.target.id==="maskRound") document.getElementById("maskRound").classList.remove("on"); };
