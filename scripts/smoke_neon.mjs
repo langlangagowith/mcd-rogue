@@ -166,6 +166,8 @@ const CTX_METHODS = ["arc", "arcTo", "beginPath", "closePath", "fill", "fillRect
 function makeBootCtx(winExtra, opts) {
   const ctxStub = { measureText: () => ({ width: 10 }) };
   for (const m of CTX_METHODS) ctxStub[m] = () => {};
+  ctxStub._draws = 0;
+  ctxStub.drawImage = () => { ctxStub._draws++; };       // 立绘渲染路径计数
   const els = new Map();
   const mkEl = (id) => {
     if (els.has(id)) return els.get(id);
@@ -193,16 +195,28 @@ function makeBootCtx(winExtra, opts) {
     devicePixelRatio: 1, innerWidth: 800, innerHeight: 600,
     matchMedia: () => ({ matches: false })
   }, winExtra || {});
-  const ctx = vm.createContext({
+  // 立绘 Image 桩：赋 src 同步触发 onload ⇒ 测试里立绘立即就绪，渲染真走 drawImage 路径
+  function FakeImg() {
+    this.onload = null; this.onerror = null;
+    this.width = 256; this.height = 256; this.naturalWidth = 256; this.naturalHeight = 256;
+    const self = this;
+    Object.defineProperty(this, "src", {
+      get() { return self._src || ""; },
+      set(v) { self._src = v; if (v && self.onload) self.onload(); }
+    });
+  }
+  const sandbox = {
     console, URLSearchParams,
     document: { getElementById: mkEl, createElement: () => mkEl("__new__" + els.size), addEventListener: () => {} },
     location: { search: (opts && opts.search) || "", href: "" },
     requestAnimationFrame: () => 0,
     window: win
-  });
+  };
+  if (!(opts && opts.noImage)) sandbox.Image = FakeImg;   // 负向控制：noImage 模拟老内核（无 Image ⇒ 回退色块）
+  const ctx = vm.createContext(sandbox);
   let err = null;
   try { vm.runInContext(js, ctx, { filename: "neon.html(boot)" }); } catch (e) { err = e; }
-  return { T: ctx.McSurvivor, els, win, err };
+  return { T: ctx.McSurvivor, els, win, err, ctx: ctxStub };
 }
 
 console.log("\n8) 启动装配与渲染路径（完整 DOM 桩，补上渲染盲区）");
@@ -240,9 +254,15 @@ console.log("\n9) 移动端回归：进得去 + 点得开 + 有怪（对应线�
   ok(s.enemies > 0, `开局 6 秒后确实有怪：${s.enemies} 只（线上反馈正是"没有怪"）`);
 
   const st = b.T.state();
-  b.win._h.touchstart[0]({ touches: [{ clientX: 700, clientY: 300 }], cancelable: true });
+  const x0 = st.player.x;
+  b.win._h.touchstart[0]({ touches: [{ clientX: 400, clientY: 300 }], cancelable: true });
+  b.win._h.touchmove[0]({ touches: [{ clientX: 470, clientY: 300 }], cancelable: true, preventDefault: () => {} });  // 向右拖 70px ⇒ 满速
   for (let i = 0; i < 60; i++) b.T.update(DT);
-  ok(st.player.x > 1, `模拟拖动后玩家朝触点移动：x=${st.player.x.toFixed(1)}`);
+  ok(st.player.x > x0 + 100, `触屏摇杆拖动后玩家向右移动：Δx=${(st.player.x - x0).toFixed(1)}px`);
+  const x1 = st.player.x;
+  b.win._h.touchend[0]({});
+  for (let i = 0; i < 30; i++) b.T.update(DT);
+  ok(Math.abs(st.player.x - x1) < 0.5, `松手即停（滑步 ${(st.player.x - x1).toFixed(2)}px）`);
   // 启动提示/错误可视（2026-10-09 "只有背景"反馈后的保障：加载中有提示、异常有红条）
   ok(!!b.els.get("bootTip") && b.els.get("bootTip").style.display === "none", "启动完成后加载提示已撤下");
 }
@@ -280,6 +300,134 @@ console.log("\n12) 每日挑战（与出餐口同一口径：种子 = 当日 YYY
     `开始页标签写着今日挑战：${b.els.get("seedTag").textContent}`);
   b.els.get("btnSeed").onclick();
   ok(!(b.els.get("seedTag").textContent || "").includes("今日挑战"), "点「换种子」⇒ 退出每日挑战，回到随机种子");
+}
+
+console.log("\n13) 触屏摇杆（跟手：幅度给速度 + 浮动原点 + 松手即停）");
+{
+  const b = makeBootCtx();
+  b.T.reset(20261009, { autoStart: true });
+  const S = b.T.state(), x0 = S.player.x;
+
+  b.T.joyStart(200, 200);
+  b.T.joyMove(210, 200);                       // 拖 10px：越过死区（7）⇒ 低速档
+  ok(b.T.joy.active && b.T.joy.mag > 0 && b.T.joy.mag < 0.35, `轻推 ⇒ 低速档：mag=${b.T.joy.mag.toFixed(2)}`);
+  for (let i = 0; i < 30; i++) b.T.update(DT);
+  const slow = S.player.x - x0;
+  ok(slow > 0, `轻推也走：Δx=${slow.toFixed(1)}px`);
+
+  b.T.joyStart(200, 200); b.T.joyMove(260, 200);   // 拖 60px ≥ JOY_R(56) ⇒ 满速
+  ok(b.T.joy.mag === 1, "推满 ⇒ 速度倍率 1.0");
+  const x1 = S.player.x;
+  for (let i = 0; i < 30; i++) b.T.update(DT);
+  const fast = S.player.x - x1;
+  ok(fast > slow * 1.8, `推满明显更快：${fast.toFixed(1)}px vs ${slow.toFixed(1)}px（幅度→速度）`);
+
+  b.T.joyEnd();
+  const x2 = S.player.x;
+  for (let i = 0; i < 30; i++) b.T.update(DT);
+  ok(Math.abs(S.player.x - x2) < 0.5, "松手即停（旧「朝点走」的滑步被消除）");
+  ok(!b.T.joy.active && b.T.joy.mag === 0, "摇杆状态复位");
+
+  b.T.joyStart(100, 100); b.T.joyMove(104, 100);   // 4px < 死区 7px
+  ok(b.T.joy.mag === 0, "死区内不移动（手指微颤不走）");
+  b.T.joyEnd();
+
+  // 浮动原点：拖出半径后原点贴着手指走 ⇒ 方向跟随"手指实际移动"而不是"从最初按下点看的钝角"
+  b.T.joyStart(100, 100);
+  b.T.joyMove(400, 100);      // 拖到 300px 外 ⇒ 原点浮动到手指后方 56px 处
+  ok(Math.abs(400 - b.T.joy.ox - 56) < 0.01, `浮动原点贴住半径边缘：|finger-ox|=${(400 - b.T.joy.ox).toFixed(1)}px`);
+  b.T.joyMove(400, 160);      // 手指再下移 60px ⇒ 方向应明显偏下（固定原点算法下只会偏 11°）
+  ok(b.T.joy.ny > 0.55, `拖出后的方向微调灵敏（跟手）：n=(${b.T.joy.nx.toFixed(2)}, ${b.T.joy.ny.toFixed(2)})`);
+  b.T.joyEnd();
+}
+
+console.log("\n14) 子弹自动瞄准（最近目标 + 预判 + 追踪）");
+{
+  const b = makeBootCtx();
+  b.T.reset(20261009, { autoStart: true });
+  const S = b.T.state();
+  const mkEnemy = (x, y, speed) => {
+    const e = { x, y, r: 14, arch: b.T.ARCH[0], hp: 100, maxHp: 100, speed: speed || 0,
+      dmg: 5, xp: 2, boss: false, hitCd: 0, flash: 0, wob: 0, dead: false };
+    S.enemies.push(e);
+    return e;
+  };
+
+  ok(b.T.aimAngle(S, 0, 0, 520) === null, "场上无敌人 ⇒ aimAngle 返回 null（交由武器回退到面向）");
+
+  mkEnemy(300, 0, 0);
+  ok(Math.abs(b.T.aimAngle(S, 0, 0, 520)) < 0.02, "正右敌人 ⇒ 瞄准角 ≈ 0");
+  S.enemies.length = 0;
+
+  mkEnemy(0, -300, 0);
+  ok(Math.abs(b.T.aimAngle(S, 0, 0, 520) + Math.PI / 2) < 0.02, "正上敌人 ⇒ 瞄准角 ≈ -π/2");
+  S.enemies.length = 0;
+
+  mkEnemy(0, -500, 0); mkEnemy(200, 0, 0);   // 一远一近
+  ok(Math.abs(b.T.aimAngle(S, 0, 0, 520)) < 0.02, "多敌人 ⇒ 瞄最近的（200px 那个）");
+  S.enemies.length = 0;
+
+  // 集成：开火方向真的朝敌 + 追踪标记
+  mkEnemy(300, 0, 0);
+  S.weapons = [{ id: "ketchup", lvl: 1, timer: 0, orbit: 0 }];
+  S.bullets.length = 0;
+  b.T.update(DT);
+  const bb = S.bullets[0];
+  ok(!!bb && Math.abs(bb.ang) < 0.05, `番茄弹朝最近敌人发射（ang=${bb ? bb.ang.toFixed(3) : "无"}）`);
+  ok(!!bb && bb.homing > 0, "番茄弹带轻微追踪（发射后仍会修正）");
+
+  S.weapons = [{ id: "nugget", lvl: 1, timer: 0, orbit: 0 }];
+  S.bullets.length = 0;
+  b.T.update(DT);
+  const nb = S.bullets[0];
+  ok(!!nb && Math.abs(nb.ang) < 0.35, `麦乐鸡初始方向也朝敌（ang=${nb ? nb.ang.toFixed(3) : "无"}）`);
+
+  // 无敌人：朝玩家面向（旧版会朝上乱打）
+  S.enemies.length = 0; S.bullets.length = 0;
+  S.player.face = Math.PI / 2;
+  S.weapons = [{ id: "ketchup", lvl: 1, timer: 0, orbit: 0 }];
+  b.T.update(DT);
+  const fb = S.bullets[0];
+  ok(!!fb && Math.abs(fb.ang - Math.PI / 2) < 0.05, "无敌人时朝玩家面向发射（不再固定朝天）");
+}
+
+console.log("\n15) 食物立绘（怪物全部换成真实餐品图）");
+{
+  const slugs = Object.keys(T.SPRITES);
+  ok(slugs.length === 12, `构建注入 12 张立绘：实际 ${slugs.length}`);
+  ok(Object.values(T.SPRITES).every((u) => u.startsWith("data:image/webp;base64,")), "全部是内联 webp（离线可玩，零外链）");
+  const noSlug = T.ARCH.filter((a) => !a.slug);
+  ok(noSlug.length === 0, `${T.ARCH.length} 种餐品全部带 slug（缺 ${noSlug.length}）`);
+  const badSlug = T.ARCH.filter((a) => !T.SPRITES[a.slug]);
+  ok(badSlug.length === 0, "所有 slug 都指向存在的立绘（无「无名色块怪」）");
+  const pick = (n) => T.ARCH.find((a) => a.name.includes(n)) || {};
+  ok(pick("安格斯").slug === "burger-angus", "与出餐口同口径：「安格斯」→ burger-angus");
+  ok(pick("麦乐鸡").slug === "nuggets", "「麦乐鸡」→ nuggets");
+  ok(pick("薯条").slug === "fries", "「薯条」→ fries");
+
+  // 渲染真的走 drawImage（FakeImage 赋 src 同步就绪）
+  const b = makeBootCtx();
+  b.T.reset(20261009, { autoStart: true });
+  for (let i = 0; i < 60 * 5; i++) { b.T.update(DT); if (b.T.state().levelup) b.T.choose(0); }
+  b.ctx._draws = 0;
+  b.T.render();
+  ok(b.ctx._draws > 0, `渲染走立绘路径（一帧 drawImage × ${b.ctx._draws}）`);
+
+  // 负向控制：无 Image（老内核）⇒ 回退色块圆，不崩
+  const b2 = makeBootCtx(null, { noImage: true });
+  b2.T.reset(20261009, { autoStart: true });
+  for (let i = 0; i < 60 * 5; i++) { b2.T.update(DT); if (b2.T.state().levelup) b2.T.choose(0); }
+  let boom = null;
+  try { b2.T.render(); } catch (e) { boom = e; }
+  ok(!boom, "无 Image 老内核：渲染自动回退色块，不抛错");
+  ok(b2.ctx._draws === 0, "回退路径不调用 drawImage（负向控制成立）");
+}
+
+console.log("\n16) 产物体积（立绘内联后的预算）");
+{
+  ok((html.match(/data:image\/webp;base64,/g) || []).length >= 12, "产物里内联 ≥12 张 webp");
+  const bytes = Buffer.byteLength(html, "utf8");
+  ok(bytes < 300 * 1024, `产物 ${(bytes / 1024).toFixed(0)}KB < 300KB 预算（弱网也能几秒打开）`);
 }
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);

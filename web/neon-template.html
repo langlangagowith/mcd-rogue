@@ -181,6 +181,29 @@
 const DATA = /*__NEON_DATA__*/;
 const VERSION = "1.0.0";
 
+/* 食物立绘：与出餐口共用同一批素材（构建期 base64 内联，运行时不碰网络）。
+   加载失败 / 缺图 / 老内核无 Image 时，渲染自动回退为色块圆 —— 视觉不塌。 */
+const SPRITES = DATA.sprites || {};
+const spriteImgs = {};
+let spritesReady = false;
+function loadSprites() {
+  let n = 0, done = 0;
+  for (const k in SPRITES) {
+    const url = SPRITES[k];
+    if (!url) continue;
+    n++;
+    const img = { complete: false, el: null };
+    spriteImgs[k] = img;
+    if (typeof Image === "undefined") { done++; continue; }
+    const el = new Image();
+    el.onload = () => { img.complete = true; done++; if (done >= n) spritesReady = true; };
+    el.onerror = () => { done++; };
+    el.src = url;
+    img.el = el;
+  }
+  if (n === 0) spritesReady = false;
+}
+
 /* ------------------------------ 基础工具 ------------------------------ */
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const TAU = Math.PI * 2;
@@ -217,7 +240,8 @@ function deriveArchetypes(foods) {
       speed: clamp(78 - kcal / 14, 26, 72),
       dmg: clamp(4 + kcal / 90, 4, 14),
       xp: 2 + Math.floor(kcal / 100),
-      color: catColor(f.c)
+      color: catColor(f.c),
+      slug: f.s || ""        // 食物立绘（构建期由 slug_for 派生，与出餐口同一口径）
     });
   }
   return out;
@@ -231,30 +255,32 @@ const BOSS_ARCH = ARCH.slice().sort((a, b) => b.hp - a.hp)[0] || {
 const WEAPONS = {
   ketchup: {
     name: "番茄弹", icon: "🍅", max: 5,
-    desc: (l) => `朝最近敌人发射 ${l >= 4 ? 3 : l >= 2 ? 2 : 1} 发直线番茄酱（伤害 ${9 + 4 * (l - 1)}）`,
+    desc: (l) => `自动瞄准最近敌人，发射 ${l >= 4 ? 3 : l >= 2 ? 2 : 1} 发直线番茄酱（伤害 ${9 + 4 * (l - 1)}）`,
     cd: (l) => 0.82 - 0.075 * (l - 1),
     fire: (S, w) => {
       const n = w.lvl >= 4 ? 3 : w.lvl >= 2 ? 2 : 1;
       const dmg = 9 + 4 * (w.lvl - 1);
-      const t = nearestEnemy(S, S.player, 560);
-      const base = t ? Math.atan2(t.y - S.player.y, t.x - S.player.x) : -Math.PI / 2;
+      const base = aimAngle(S, S.player.x, S.player.y, 520);
+      const b0 = base === null ? S.player.face : base;   // 无敌人：朝面向；有敌人：预判瞄准
       for (let i = 0; i < n; i++) {
-        const a = base + (i - (n - 1) / 2) * 0.16;
-        shoot(S, a, 520, dmg, { r: 5, color: "#ff4d3d", pierce: 0, life: 1.1, kind: "dot" });
+        const a = b0 + (i - (n - 1) / 2) * 0.16;
+        shoot(S, a, 520, dmg, { r: 5, color: "#ff4d3d", pierce: 0, life: 1.1, homing: 1.9, kind: "dot" });
       }
       sfx(S, "shoot");
     }
   },
   nugget: {
     name: "麦乐鸡追踪", icon: "🍗", max: 5,
-    desc: (l) => `放出自寻的鸡块（${1 + Math.floor((l - 1) / 2)} 枚，伤害 ${8 + 4 * (l - 1)}）`,
+    desc: (l) => `朝最近敌人放出自寻的鸡块（${1 + Math.floor((l - 1) / 2)} 枚，伤害 ${8 + 4 * (l - 1)}）`,
     cd: (l) => 1.25 - 0.09 * (l - 1),
     fire: (S, w) => {
       const n = 1 + Math.floor((w.lvl - 1) / 2);
       const dmg = 8 + 4 * (w.lvl - 1);
+      const base = aimAngle(S, S.player.x, S.player.y, 300);
       for (let i = 0; i < n; i++) {
-        const a = S.rng() * TAU;
-        shoot(S, a, 300, dmg, { r: 6, color: "#ffc72c", pierce: 1, life: 2.4, homing: 5.2, kind: "nugget" });
+        // 有敌人：朝最近敌人方向（带一点散布）；无敌人：才随机方向
+        const a = base === null ? S.rng() * TAU : base + (S.rng() - 0.5) * 0.5;
+        shoot(S, a, 300, dmg, { r: 6, color: "#ffc72c", pierce: 1, life: 2.4, homing: 6.5, kind: "nugget" });
       }
       sfx(S, "shoot");
     }
@@ -288,14 +314,14 @@ const WEAPONS = {
   },
   fries: {
     name: "薯条扇射", icon: "🍟", max: 5,
-    desc: (l) => `扇形泼出 ${1 + Math.floor((l - 1) / 2) + 1} 根薯条（伤害 ${7 + 3 * (l - 1)}）`,
+    desc: (l) => `瞄准最近敌人，扇形泼出 ${1 + Math.floor((l - 1) / 2) + 1} 根薯条（伤害 ${7 + 3 * (l - 1)}）`,
     cd: (l) => 1.0 - 0.07 * (l - 1),
     fire: (S, w) => {
       const n = 1 + Math.floor((w.lvl - 1) / 2) + 1, dmg = 7 + 3 * (w.lvl - 1);
-      const t = nearestEnemy(S, S.player, 560);
-      const base = t ? Math.atan2(t.y - S.player.y, t.x - S.player.x) : Math.PI / 2;
+      const base = aimAngle(S, S.player.x, S.player.y, 430);
+      const b0 = base === null ? S.player.face : base;
       for (let i = 0; i < n; i++) {
-        const a = base + (i - (n - 1) / 2) * 0.3;
+        const a = b0 + (i - (n - 1) / 2) * 0.3;
         shoot(S, a, 430, dmg, { r: 4, color: "#ffe066", pierce: 1, life: 1.2, homing: 0, kind: "fry" });
       }
       sfx(S, "shoot");
@@ -355,6 +381,19 @@ function nearestEnemy(S, p, maxD) {
     if (d < bd) { bd = d; best = e; }
   }
   return best;
+}
+
+/* 自动瞄准：最近敌人 + 提前量（预判）。
+   敌人都是朝玩家直冲 ⇒ 前移方向 = 敌人→玩家方向；
+   前移量 = 子弹飞完全程的时间 × 敌速（0.8 折扣防超调）。
+   范围 780 覆盖刷怪环（520~680）——子弹不再"看不见远处刚生成的怪"。 */
+function aimAngle(S, fx, fy, bulletSpd) {
+  const t = nearestEnemy(S, { x: fx, y: fy }, 780);
+  if (!t) return null;
+  const dx = t.x - fx, dy = t.y - fy, d = Math.hypot(dx, dy) || 1;
+  const px = S.player.x - t.x, py = S.player.y - t.y, pd = Math.hypot(px, py) || 1;
+  const lead = Math.min(t.speed * (d / bulletSpd) * 0.8, pd * 0.7);
+  return Math.atan2(t.y + (py / pd) * lead - fy, t.x + (px / pd) * lead - fx);
 }
 
 /* -------------------------------- 生成 -------------------------------- */
@@ -511,6 +550,31 @@ function sfx(S, kind) {
 const keys = Object.create(null);
 let pointer = { active: false, x: 0, y: 0 };
 
+/* 触屏：动态虚拟摇杆 —— 移动"跟手"的关键在这里
+   · 方向 = 手指相对按下点（原点）的位移 —— 拖动即时改变方向，零换算零延迟
+   · 拖动幅度（≤ JOY_R）给速度倍率：轻推慢走、推满全速
+   · 浮动原点：拖出半径后原点贴着手指走（始终相距 JOY_R），方向微调永远灵敏
+   · 松手即停（旧的"朝触点走"会滑步/超调，这就是不跟手的来源） */
+const joy = { active: false, ox: 0, oy: 0, nx: 0, ny: 0, mag: 0, dx: 0, dy: 0 };
+const JOY_R = 56;      // 满速半径（px）
+const JOY_DEAD = 7;    // 死区：手指微颤不算移动
+function joyUpdate(x, y) {
+  let dx = x - joy.ox, dy = y - joy.oy, d = Math.hypot(dx, dy);
+  if (d > JOY_R) {
+    joy.ox = x - (dx / d) * JOY_R; joy.oy = y - (dy / d) * JOY_R;
+    dx = x - joy.ox; dy = y - joy.oy; d = JOY_R;
+  }
+  joy.dx = dx; joy.dy = dy;
+  if (d < JOY_DEAD) { joy.mag = 0; joy.nx = 0; joy.ny = 0; return; }
+  joy.mag = Math.min(d / JOY_R, 1); joy.nx = dx / d; joy.ny = dy / d;
+}
+function joyStart(x, y) {
+  joy.active = true; joy.ox = x; joy.oy = y;
+  joy.dx = 0; joy.dy = 0; joy.mag = 0; joy.nx = 0; joy.ny = 0;
+}
+function joyMove(x, y) { if (joy.active) joyUpdate(x, y); }
+function joyEnd() { joy.active = false; joy.mag = 0; joy.nx = 0; joy.ny = 0; }
+
 /* =============================== 模拟 ================================ */
 // 纯模拟，不碰 DOM / 不渲染；只吃 S.rng ⇒ 同种子同结果
 function update(dt) {
@@ -519,20 +583,23 @@ function update(dt) {
   const P = S.player;
   S.time += dt;
 
-  /* --- 输入方向 --- */
-  let mx = 0, my = 0;
-  if (pointer.active) {
+  /* --- 输入方向：键盘 > 触屏摇杆 > 鼠标指针（任一路可用，互不锁死；
+         旧版 pointer.active 时会屏蔽键盘，指针一卡住键盘就永久失灵） --- */
+  let mx = 0, my = 0, spdMul = 1;
+  if (keys["a"] || keys["arrowleft"]) mx -= 1;
+  if (keys["d"] || keys["arrowright"]) mx += 1;
+  if (keys["w"] || keys["arrowup"]) my -= 1;
+  if (keys["s"] || keys["arrowdown"]) my += 1;
+  if (mx || my) {
+    const m = Math.hypot(mx, my); mx /= m; my /= m;
+  } else if (joy.active && joy.mag > 0) {
+    mx = joy.nx; my = joy.ny; spdMul = joy.mag;   // 拖动幅度 = 速度倍率（轻推慢走、推满全速）
+  } else if (pointer.active) {
     const dx = pointer.x - P.x, dy = pointer.y - P.y, d = Math.hypot(dx, dy);
     if (d > 6) { mx = dx / d; my = dy / d; }
-  } else {
-    if (keys["a"] || keys["arrowleft"]) mx -= 1;
-    if (keys["d"] || keys["arrowright"]) mx += 1;
-    if (keys["w"] || keys["arrowup"]) my -= 1;
-    if (keys["s"] || keys["arrowdown"]) my += 1;
-    const m = Math.hypot(mx, my); if (m > 0) { mx /= m; my /= m; }
   }
   if (mx || my) P.face = Math.atan2(my, mx);
-  const spd = P.speed * (1 + S.passives.spd * 0.08);
+  const spd = P.speed * (1 + S.passives.spd * 0.08) * spdMul;
   P.x += mx * spd * dt; P.y += my * spd * dt;
   if (P.invuln > 0) P.invuln -= dt;
 
@@ -591,7 +658,7 @@ function update(dt) {
     if (b.life <= 0) { S.bullets.splice(i, 1); continue; }
     for (const e of S.enemies) {
       if (e.dead || b.hit.has(e)) continue;
-      if (Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r) {
+      if (Math.hypot(e.x - b.x, e.y - b.y) < e.r + b.r + 2) {   // +2px 宽容：擦边也算命中（手机手感）
         hurtEnemy(S, e, b.dmg); b.hit.add(e);
         if (b.pierce-- <= 0) { S.bullets.splice(i, 1); break; }
       }
@@ -708,20 +775,39 @@ function render() {
     cx.font = `${dp.r * 2}px serif`; cx.textAlign = "center"; cx.textBaseline = "middle";
     cx.fillText(dp.kind === "heart" ? "❤️" : "🧲", dp.x + ox, dp.y + oy);
   }
-  // 敌人
+  // 敌人：真实食物立绘（与出餐口同一批素材；缺图/未加载时回退为色块圆，视觉不塌）
   for (const e of S.enemies) {
     const x = e.x + ox, y = e.y + oy;
-    cx.beginPath(); cx.arc(x, y, e.r, 0, TAU);
-    cx.fillStyle = e.flash > 0 ? "#ffffff" : e.color; cx.globalAlpha = e.boss ? 0.98 : 0.86; cx.fill(); cx.globalAlpha = 1;
-    cx.lineWidth = e.boss ? 3 : 1.5; cx.strokeStyle = e.boss ? "#ffd93d" : "rgba(0,0,0,.35)"; cx.stroke();
+    const sp = spriteImgs[e.arch.slug];
+    const el = (sp && sp.complete && sp.el) ? sp.el : null;
+    if (el) {
+      if (e.boss) {   // Boss 底光：体下金圈 —— 远看就知道是大家伙
+        cx.beginPath(); cx.arc(x, y, e.r * 1.5, 0, TAU);
+        cx.fillStyle = "rgba(255,199,44,.18)"; cx.fill();
+      }
+      const sz = e.r * (e.boss ? 3.0 : 2.6);   // 立绘含透明边 ⇒ 视觉尺寸略大于碰撞半径
+      cx.drawImage(el, x - sz / 2, y - sz / 2, sz, sz);
+      if (e.flash > 0) {   // 受击闪白：叠一层半透明白（立绘不能整体染白，用圆罩打亮）
+        cx.globalAlpha = 0.62;
+        cx.beginPath(); cx.arc(x, y, e.r * 0.92, 0, TAU);
+        cx.fillStyle = "#fff"; cx.fill();
+        cx.globalAlpha = 1;
+      }
+    } else {
+      cx.beginPath(); cx.arc(x, y, e.r, 0, TAU);
+      cx.fillStyle = e.flash > 0 ? "#ffffff" : e.color; cx.globalAlpha = e.boss ? 0.98 : 0.86; cx.fill(); cx.globalAlpha = 1;
+      cx.lineWidth = e.boss ? 3 : 1.5; cx.strokeStyle = e.boss ? "#ffd93d" : "rgba(0,0,0,.35)"; cx.stroke();
+    }
     if (e.r >= 16 || e.boss) {
+      // 名字挪到立绘下方（别糊在脸上）；血条留在头顶
       cx.font = `${e.boss ? 12 : 10}px system-ui,sans-serif`; cx.textAlign = "center"; cx.textBaseline = "middle";
-      cx.fillStyle = "rgba(0,0,0,.72)"; cx.fillText(e.arch.name, x + 1, y + 1);
-      cx.fillStyle = "#fff"; cx.fillText(e.arch.name, x, y);
-      // 血条
+      const ty = el ? y + e.r * (e.boss ? 1.62 : 1.42) + 6 : y;
+      cx.fillStyle = "rgba(0,0,0,.72)"; cx.fillText(e.arch.name, x + 1, ty + 1);
+      cx.fillStyle = "#fff"; cx.fillText(e.arch.name, x, ty);
       const w = e.r * 2, hp = clamp(e.hp / e.maxHp, 0, 1);
-      cx.fillStyle = "rgba(0,0,0,.5)"; cx.fillRect(x - w / 2, y - e.r - 7, w, 3);
-      cx.fillStyle = "#ff5b4d"; cx.fillRect(x - w / 2, y - e.r - 7, w * hp, 3);
+      const by = el ? y - e.r * (e.boss ? 1.55 : 1.35) - 5 : y - e.r - 7;
+      cx.fillStyle = "rgba(0,0,0,.5)"; cx.fillRect(x - w / 2, by, w, 3);
+      cx.fillStyle = "#ff5b4d"; cx.fillRect(x - w / 2, by, w * hp, 3);
     }
   }
   // 子弹
@@ -752,6 +838,17 @@ function render() {
       cx.globalAlpha = 1 - k; cx.fillStyle = f.color; cx.font = "bold 14px system-ui";
       cx.textAlign = "center"; cx.fillText(f.txt, f.x + ox, f.y + oy - k * 26); cx.globalAlpha = 1;
     }
+  }
+  // 触屏摇杆（仅按住时显示）：底盘 + 柄 —— 给"跟手"一个可见的锚
+  if (joy.active) {
+    cx.beginPath(); cx.arc(joy.ox, joy.oy, JOY_R, 0, TAU);
+    cx.strokeStyle = "rgba(255,255,255,.22)"; cx.lineWidth = 2; cx.stroke();
+    cx.beginPath(); cx.arc(joy.ox, joy.oy, 3.5, 0, TAU);
+    cx.fillStyle = "rgba(255,255,255,.3)"; cx.fill();
+    const hx = joy.ox + joy.nx * joy.mag * JOY_R, hy = joy.oy + joy.ny * joy.mag * JOY_R;
+    cx.beginPath(); cx.arc(hx, hy, 15, 0, TAU);
+    cx.fillStyle = "rgba(255,199,44,.28)"; cx.fill();
+    cx.strokeStyle = "rgba(255,199,44,.9)"; cx.lineWidth = 2; cx.stroke();
   }
 }
 function drawGrid(ox, oy) {
@@ -910,9 +1007,10 @@ function boot() {
     const seed0 = dayQ ? (parseInt(dayQ, 10) >>> 0)
                        : ((parseInt(seedQ || "0", 10) || parseInt(dayTagOf(new Date()), 10)) >>> 0);
     const hint = $("hint");
-    if (hint) hint.textContent = "自动开火 · 你只管走位（WASD / 方向键 / 拖动）";
+    if (hint) hint.textContent = "自动开火·子弹自动瞄准 · 你只管走位";
     const tag = $("seedTag");
     if (tag) tag.textContent = isDailySeed(seed0) ? `今日挑战 #${seed0}` : `种子 ${seed0}`;
+    loadSprites();
     reset(seed0, { autoStart: false }); render(); syncHud();
 
     const bStart = $("btnStart"); if (bStart) bStart.onclick = () => startGame(seed0);
@@ -949,26 +1047,40 @@ function boot() {
     });
     window.addEventListener("keyup", (e) => { keys[(e.key || "").toLowerCase()] = false; });
 
-    const pos = (e) => {
+    const pos = (e) => {                    // 鼠标指针 → 世界坐标（按住朝鼠标走）
       const r = cv.getBoundingClientRect();
       const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
       if (!t) return;
       pointer.x = (t.clientX - r.left - W / 2) + S.player.x;
       pointer.y = (t.clientY - r.top - H / 2) + S.player.y;
     };
-    const on = (e) => { pointer.active = true; pos(e); };
-    const move = (e) => { if (!pointer.active) return; pos(e); if (e.cancelable) e.preventDefault(); };
-    const off = () => { pointer.active = false; };
+    const jpos = (t) => {                   // 触屏坐标 → 画布坐标（摇杆按画布坐标绘制）
+      const r = cv.getBoundingClientRect();
+      return { x: t.clientX - r.left, y: t.clientY - r.top };
+    };
+    // 触屏 → 摇杆（跟手）；鼠标/笔 → 朝指针走。按 pointerType 分流，两套互不干扰。
+    const onTouchStart = (t) => { const p = jpos(t); joyStart(p.x, p.y); };
+    const onTouchMove = (t) => { const p = jpos(t); joyMove(p.x, p.y); };
+    const onMouseDown = (e) => { pointer.active = true; pos(e); };
+    const onMouseMove = (e) => { if (!pointer.active) return; pos(e); if (e.cancelable) e.preventDefault(); };
+    const offAll = () => { pointer.active = false; joyEnd(); };
     const bind = (el, type, fn, opt) => { if (el && el.addEventListener) el.addEventListener(type, fn, opt); };
     // 微信内置浏览器（X5）等旧 WebView 没有 PointerEvent ⇒ 必须留 touch 回退，否则手机上根本动不了
     if (window.PointerEvent) {
-      bind(window, "pointerdown", on); bind(window, "pointermove", move);
-      bind(window, "pointerup", off); bind(window, "pointercancel", off);
+      bind(window, "pointerdown", (e) => { if (e.pointerType === "touch") onTouchStart(e); else onMouseDown(e); });
+      bind(window, "pointermove", (e) => {
+        if (e.pointerType === "touch") onTouchMove(e);
+        else if (pointer.active) onMouseMove(e);
+      });
+      bind(window, "pointerup", offAll); bind(window, "pointercancel", offAll);
     } else {
-      bind(window, "touchstart", on, { passive: true });
-      bind(window, "touchmove", move, { passive: false });
-      bind(window, "touchend", off); bind(window, "touchcancel", off);
-      bind(window, "mousedown", on); bind(window, "mousemove", move); bind(window, "mouseup", off);
+      bind(window, "touchstart", (e) => { const t = e.touches && e.touches[0]; if (t) onTouchStart(t); }, { passive: true });
+      bind(window, "touchmove", (e) => {
+        const t = e.touches && e.touches[0];
+        if (t) { onTouchMove(t); if (e.cancelable) e.preventDefault(); }
+      }, { passive: false });
+      bind(window, "touchend", offAll); bind(window, "touchcancel", offAll);
+      bind(window, "mousedown", onMouseDown); bind(window, "mousemove", onMouseMove); bind(window, "mouseup", offAll);
     }
     // 触屏判定：别信 navigator.maxTouchPoints（Windows 桌面会报正数）；matchMedia 包 try 防定制内核怪癖
     let coarse = false;
@@ -977,12 +1089,12 @@ function boot() {
                ("ontouchstart" in window);
     } catch (_) {}
     if (coarse) {
-      if (hint) hint.textContent = "按住屏幕拖动 · 自动开火";
+      if (hint) hint.textContent = "按住屏幕拖动：往哪拖往哪走 · 自动开火";
       // 触屏场景：开始卡的操作表换触摸版（键盘键位对手机用户是干扰，P/M/R 手机上根本按不到）
       const st = $("startStats");
       if (st) {
         st.innerHTML =
-          "<div><span>移动</span><b>按住屏幕拖动</b></div>" +
+          "<div><span>移动</span><b>按住拖动（跟手摇杆）</b></div>" +
           "<div><span>暂停</span><b>点右上「⏸」</b></div>" +
           "<div><span>静音</span><b>暂停后可切换</b></div>" +
           "<div><span>重开</span><b>暂停 / 结算后可选</b></div>";
@@ -1003,9 +1115,12 @@ if (typeof document !== "undefined" && document.getElementById) boot();
 // 供无头回归使用：只暴露模拟，不含渲染
 const API = {
   VERSION, WEAPONS, PASSIVES, ARCH,
+  SPRITES, spriteImgs,                      // 立绘注入（测试校验：每种怪物都有图）
+  aimAngle,                                 // 自动瞄准（测试直接断言瞄准角）
   isDailySeed, dayTagOf,                    // 每日挑战：seed = YYYYMMDD
   daySeed: () => (parseInt(dayFromUrl() || dayTagOf(new Date()), 10) >>> 0),
-  keys, pointer,               // 暴露输入状态：无头测试用它驱动机器人走位
+  keys, pointer, joy,                       // 暴露输入状态：无头测试用它驱动机器人走位
+  joyStart, joyMove, joyEnd,                // 摇杆三件套（测试模拟触屏拖动）
   reset: (seed, opt) => reset(seed >>> 0, opt),
   update: (dt) => update(dt),
   render: () => render(),
