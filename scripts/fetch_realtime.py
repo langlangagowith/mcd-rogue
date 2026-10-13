@@ -26,6 +26,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -47,13 +48,24 @@ def slugify(i: int) -> str:
     return f"coupon-{i}"
 
 
-def download(url: str, dest: str) -> int:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        blob = r.read()
-    with open(dest, "wb") as f:
-        f.write(blob)
-    return len(blob)
+def download(url: str, dest: str, tries: int = 3) -> int:
+    """沙箱到 mcd CDN 的 CONNECT 隧道会间歇 502（与 github.com 同病）⇒ 带退避重试。"""
+    last = None
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                blob = r.read()
+            with open(dest, "wb") as f:
+                f.write(blob)
+            return len(blob)
+        except Exception as e:  # noqa: BLE001
+            last = e
+            if i < tries - 1:
+                wait = 4 * (i + 1)
+                print(f"  ⏳ 下载失败，{wait}s 后重试 {i + 2}/{tries}：{e}")
+                time.sleep(wait)
+    raise last
 
 
 def fetch_coupons(max_n: int, url_map: dict[str, str]) -> list[dict]:

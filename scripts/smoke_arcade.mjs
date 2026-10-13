@@ -337,6 +337,11 @@ function makeBootCtx(winExtra, opts) {
     bootJs = bootJs.replace(/const LOTTERY = .+?;\n/, "const LOTTERY = null;\n");
     if (bootJs === js) throw new Error("noLottery 替换失败：产物里没找到 LOTTERY 赋值行");
   }
+  if (opts && opts.noPoster) {
+    // 负向控制：把当日活动海报数据从产物里摘掉（模拟"当日无活动 / CDN 故障没拉到"）
+    if (!/const POSTER = /.test(js)) throw new Error("noPoster 替换失败：产物里没找到 POSTER 赋值行");
+    bootJs = bootJs.replace(/const POSTER = (?!null;).+?;\n/, "const POSTER = null;\n");
+  }
   try { vm.runInContext(bootJs, ctx, { filename: "arcade.html(boot)" }); } catch (e) { err = e; }
   return { T: ctx.McChow, els, win, rec, err, opts: opts || {} };
 }
@@ -467,12 +472,21 @@ console.log("\n13) 快赢三件套：真券图 / 活动海报 / 每日挑战");
     ok(!threw, "券图缺失时退回自绘纸片，不抛错（弱网/老内核不会白屏）");
   }
 
-  /* --- 活动海报：开始页展示当天麦当劳真在搞的活动 --- */
-  ok(b.T.POSTER && /^data:image\/webp;base64,/.test(b.T.POSTER.img || ""), "活动海报已内联（webp data URL）");
-  ok((b.els.get("posterImg").src || "").startsWith("data:image/webp"), "开始页海报 <img> 挂上了真实海报");
-  const ptitle = b.els.get("posterTitle").textContent || "";
-  ok(ptitle.length > 0, `海报标题已填充：${ptitle.slice(0, 24)}`);
-  ok(b.els.get("posterBox").className === "", "海报卡已显示（默认的 off 被摘掉）");
+  /* --- 活动海报：开始页展示当天麦当劳真在搞的活动（当日无海报 ⇒ 卡片收起，不渲染空壳） --- */
+  if (b.T.POSTER && b.T.POSTER.img) {
+    ok(/^data:image\/webp;base64,/.test(b.T.POSTER.img), "活动海报已内联（webp data URL）");
+    ok((b.els.get("posterImg").src || "").startsWith("data:image/webp"), "开始页海报 <img> 挂上了真实海报");
+    const ptitle = b.els.get("posterTitle").textContent || "";
+    ok(ptitle.length > 0, `海报标题已填充：${ptitle.slice(0, 24)}`);
+    ok(b.els.get("posterBox").className === "", "海报卡已显示（默认的 off 被摘掉）");
+  } else {
+    ok((b.els.get("posterBox").className || "").includes("off"), "当日无活动海报 ⇒ 海报卡保持收起（不渲染空壳）");
+    ok(!(b.els.get("posterImg").src || "").startsWith("data:image/webp"), "当日无活动海报 ⇒ 不挂任何海报图");
+  }
+  // 负向控制：把海报数据从产物里摘掉，收起行为必须与「当日无海报」一致
+  const bn = makeBootCtx(undefined, { noPoster: true });
+  ok((bn.els.get("posterBox").className || "").includes("off"), "无海报数据时：海报卡保持收起（负向控制，不是渲染空壳）");
+  ok(!(bn.els.get("posterImg").src || "").startsWith("data:image/webp"), "无海报数据时：不挂任何海报图");
 
   /* --- 每日挑战：同一天全世界同一局 --- */
   ok(T.isDailySeed(20261010) === true && T.isDailySeed(999) === false, "YYYYMMDD 形状 ⇒ 判为每日挑战局");
