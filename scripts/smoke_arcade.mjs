@@ -486,6 +486,9 @@ console.log("\n13) 快赢三件套：真券图 / 活动海报 / 每日挑战");
   ok(makeBootCtx(null, { search: "?d=nonsense" }).T.DAY.seed === b3.T.DAY.seed, "?d= 非法值 ⇒ 退回今日（不崩）");
   b3.els.get("btnFree").onclick();
   ok(b3.T.state().daily === false, "点「随便玩玩」⇒ 随机种子，退出每日挑战");
+  let casualDaily = 0;
+  for (let i = 0; i < 2000; i++) if (b3.T.isDailySeed(b3.T.newSeed())) casualDaily++;
+  ok(casualDaily === 0, `随机种子 2000 次采样无一落进每日区间（原实现约 1/441 把「随便玩玩」误判成每日挑战，实测值 ${casualDaily}）`);
   ok(b3.els.get("btnStart").textContent.includes("今日"), `主按钮写着今日挑战：${b3.els.get("btnStart").textContent}`);
 }
 

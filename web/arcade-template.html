@@ -1780,7 +1780,13 @@ function drawStaticStart() {
   drawPlayer(g);
 }
 
-function newSeed() { return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0; }
+function newSeed() {
+  // 绝不允许落进每日区间 [20000101, 29991231]：否则「随便玩玩 / 换种子」会被误判成每日挑战局
+  // （实测原实现约 1/441 概率撞中，2026-10-12 曾以此烧掉每日素材刷新）
+  let s;
+  do { s = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0; } while (isDailySeed(s));
+  return s;
+}
 
 /* ------------------------- 每日挑战：同一天同一局 ------------------------- */
 
@@ -1897,7 +1903,7 @@ function boot() {
 
 const API = {
   VERSION, CFG, FOODS, SPRITES, CAT_COLOR, RANKS,
-  COMBOS, DEALS, COUPONS, POSTER, couponImgs, LOTTERY, LOTTERY_IMGS, DAY, isDailySeed, dayTagOf, seedNoteText,
+  COMBOS, DEALS, COUPONS, POSTER, couponImgs, LOTTERY, LOTTERY_IMGS, DAY, isDailySeed, dayTagOf, newSeed, seedNoteText,
   REPO_QR, REPO_URL, SHARE_BASE, shareUrl,
   keys, pointer,
   reset: (seed, opt) => { if (opt && opt.autoStart) beginGame(seed); else startGame(seed); return S; },

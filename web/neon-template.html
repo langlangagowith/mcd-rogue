@@ -1183,7 +1183,13 @@ function startGame(seed) {
   lastT = 0;
   if (!rafId) rafId = requestAnimationFrame(loop);
 }
-function newSeed() { return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0; }
+function newSeed() {
+  // 绝不允许落进每日区间 [20000101, 29991231]：否则「换种子 / R 重开」会被误判成每日挑战局
+  // （实测原实现约 1/441 概率撞中，2026-10-12 曾以此烧掉每日素材刷新）
+  let s;
+  do { s = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0; } while (isDailySeed(s));
+  return s;
+}
 
 /* ------------------------- 每日挑战：同一天同一局 ------------------------- */
 function dayTagOf(d) {
@@ -1325,7 +1331,7 @@ const API = {
   VERSION, WEAPONS, PASSIVES, ARCH,
   SPRITES, spriteImgs,                      // 立绘注入（测试校验：每种怪物都有图）
   aimAngle,                                 // 自动瞄准（测试直接断言瞄准角）
-  isDailySeed, dayTagOf,                    // 每日挑战：seed = YYYYMMDD
+  isDailySeed, dayTagOf, newSeed,           // 每日挑战：seed = YYYYMMDD
   daySeed: () => (parseInt(dayFromUrl() || dayTagOf(new Date()), 10) >>> 0),
   keys, pointer, joy,                       // 暴露输入状态：无头测试用它驱动机器人走位
   joyStart, joyMove, joyEnd,                // 摇杆三件套（测试模拟触屏拖动）

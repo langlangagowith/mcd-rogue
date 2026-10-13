@@ -300,6 +300,9 @@ console.log("\n12) 每日挑战（与出餐口同一口径：种子 = 当日 YYY
     `开始页标签写着今日挑战：${b.els.get("seedTag").textContent}`);
   b.els.get("btnSeed").onclick();
   ok(!(b.els.get("seedTag").textContent || "").includes("今日挑战"), "点「换种子」⇒ 退出每日挑战，回到随机种子");
+  let casualDaily = 0;
+  for (let i = 0; i < 2000; i++) if (b.T.isDailySeed(b.T.newSeed())) casualDaily++;
+  ok(casualDaily === 0, `随机种子 2000 次采样无一落进每日区间（原实现约 1/441 把「换种子」误判成每日挑战，实测值 ${casualDaily}）`);
 }
 
 console.log("\n13) 触屏摇杆（跟手：幅度给速度 + 浮动原点 + 松手即停）");
